@@ -132,6 +132,199 @@
             pointer-events: none;
             z-index: 10;
         }
+
+        /* Power Bar Container */
+        #powerBarContainer {
+            margin-top: 20px;
+            position: relative;
+            z-index: 2;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        #powerBarLabel {
+            font-size: 20px;
+            color: #ff0040;
+            text-shadow:
+                0 0 5px #ff0040,
+                0 0 10px #ff0040;
+            letter-spacing: 3px;
+            margin-bottom: 8px;
+        }
+
+        #powerBar {
+            width: 300px;
+            height: 30px;
+            background: #1a1a1a;
+            border: 3px solid #ff0040;
+            box-shadow:
+                0 0 10px rgba(255, 0, 64, 0.5),
+                inset 0 0 10px rgba(0, 0, 0, 0.8);
+            position: relative;
+            overflow: hidden;
+        }
+
+        #powerBarFill {
+            height: 100%;
+            width: 0%;
+            background: #ff0040;
+            transition: width 0.3s ease, box-shadow 0.3s ease;
+            box-shadow: 0 0 10px rgba(255, 0, 64, 0.8);
+        }
+
+        #powerBarFill.ready {
+            box-shadow:
+                0 0 20px rgba(255, 0, 64, 1),
+                0 0 40px rgba(255, 0, 64, 0.8);
+            animation: powerGlow 1s infinite;
+        }
+
+        @keyframes powerGlow {
+            0%, 100% { box-shadow: 0 0 20px rgba(255, 0, 64, 1), 0 0 40px rgba(255, 0, 64, 0.8); }
+            50% { box-shadow: 0 0 30px rgba(255, 0, 64, 1), 0 0 60px rgba(255, 0, 64, 1); }
+        }
+
+        #powerReadyText {
+            color: #ff6b9d;
+            font-size: 14px;
+            text-shadow:
+                0 0 5px #ff6b9d,
+                0 0 10px #ff6b9d;
+            letter-spacing: 2px;
+            margin-top: 8px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        #powerReadyText.visible {
+            opacity: 1;
+        }
+
+        #powerInfo {
+            color: #ff0040;
+            font-size: 12px;
+            text-shadow: 0 0 5px #ff0040;
+            letter-spacing: 1px;
+            margin-top: 5px;
+            min-height: 20px;
+        }
+
+        #activePowerDisplay {
+            position: fixed;
+            top: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #ff0040;
+            font-size: 24px;
+            text-shadow:
+                0 0 10px #ff0040,
+                0 0 20px #ff0040;
+            letter-spacing: 3px;
+            z-index: 11;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        #activePowerDisplay.visible {
+            opacity: 1;
+        }
+
+        /* Power Info Card */
+        #powerInfoCard {
+            max-width: 800px;
+            margin: 30px auto 0;
+            position: relative;
+            z-index: 2;
+        }
+
+        #powerInfoHeader {
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #ff0040;
+            padding: 15px 20px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow:
+                0 0 10px rgba(255, 0, 64, 0.5),
+                inset 0 0 10px rgba(255, 0, 64, 0.1);
+            transition: all 0.3s;
+        }
+
+        #powerInfoHeader:hover {
+            background: rgba(255, 0, 64, 0.1);
+            box-shadow:
+                0 0 20px rgba(255, 0, 64, 0.8),
+                inset 0 0 20px rgba(255, 0, 64, 0.2);
+        }
+
+        #powerInfoHeader h3 {
+            color: #ff0040;
+            font-size: 20px;
+            text-shadow:
+                0 0 5px #ff0040,
+                0 0 10px #ff0040;
+            letter-spacing: 3px;
+            margin: 0;
+        }
+
+        #powerInfoToggle {
+            color: #ff6b9d;
+            font-size: 24px;
+            transition: transform 0.3s;
+        }
+
+        #powerInfoToggle.expanded {
+            transform: rotate(180deg);
+        }
+
+        #powerInfoContent {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease;
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #ff0040;
+            border-top: none;
+        }
+
+        #powerInfoContent.expanded {
+            max-height: 600px;
+        }
+
+        .power-item {
+            padding: 15px 20px;
+            border-bottom: 1px solid rgba(255, 0, 64, 0.3);
+        }
+
+        .power-item:last-child {
+            border-bottom: none;
+        }
+
+        .power-name {
+            color: #ff6b9d;
+            font-size: 18px;
+            text-shadow:
+                0 0 5px #ff6b9d,
+                0 0 10px #ff6b9d;
+            letter-spacing: 2px;
+            margin-bottom: 5px;
+        }
+
+        .power-description {
+            color: #ff0040;
+            font-size: 14px;
+            text-shadow: 0 0 3px #ff0040;
+            letter-spacing: 1px;
+            opacity: 0.9;
+        }
+
+        .power-duration {
+            color: #ff6b9d;
+            font-size: 12px;
+            opacity: 0.7;
+            margin-top: 3px;
+        }
     </style>
 </head>
 <body>
@@ -146,6 +339,54 @@
     <div id="instructions">
         Use Arrow Keys (Up/Down) or Mouse to control left paddle<br>
         First to 5 wins! Press SPACE or ENTER to restart after game over.
+    </div>
+
+    <!-- Power Bar -->
+    <div id="powerBarContainer">
+        <div id="powerBarLabel">POWER CHARGE</div>
+        <div id="powerBar">
+            <div id="powerBarFill"></div>
+        </div>
+        <div id="powerReadyText">⚡ TAP P TO ACTIVATE ⚡</div>
+        <div id="powerInfo"></div>
+    </div>
+
+    <!-- Active Power Display -->
+    <div id="activePowerDisplay"></div>
+
+    <!-- Power Info Card -->
+    <div id="powerInfoCard">
+        <div id="powerInfoHeader">
+            <h3>⚡ AVAILABLE POWERS</h3>
+            <span id="powerInfoToggle">▼</span>
+        </div>
+        <div id="powerInfoContent">
+            <div class="power-item">
+                <div class="power-name">1. UPSIDE DOWN</div>
+                <div class="power-description">Slows ball to 60% speed - gives you reaction time</div>
+                <div class="power-duration">Duration: 4 seconds</div>
+            </div>
+            <div class="power-item">
+                <div class="power-name">2. PSYCHIC SHIELD</div>
+                <div class="power-description">Paddle expands 50% taller - easier defense</div>
+                <div class="power-duration">Duration: 5 seconds</div>
+            </div>
+            <div class="power-item">
+                <div class="power-name">3. MIND FOG</div>
+                <div class="power-description">Computer reaction slowed to 40% - opponent handicap</div>
+                <div class="power-duration">Duration: 5 seconds</div>
+            </div>
+            <div class="power-item">
+                <div class="power-name">4. PORTAL JUMP</div>
+                <div class="power-description">Ball teleports 100px forward at midline - surprise attack</div>
+                <div class="power-duration">Duration: Single-use instant</div>
+            </div>
+            <div class="power-item">
+                <div class="power-name">5. VECNA'S PULL</div>
+                <div class="power-description">Ball curves toward your paddle - magnetic attraction</div>
+                <div class="power-duration">Duration: 4 seconds</div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -163,6 +404,59 @@
             particleCanvas.width = window.innerWidth;
             particleCanvas.height = window.innerHeight;
         });
+
+        // Power UI DOM elements
+        const powerBarFill = document.getElementById('powerBarFill');
+        const powerReadyText = document.getElementById('powerReadyText');
+        const powerInfo = document.getElementById('powerInfo');
+        const activePowerDisplay = document.getElementById('activePowerDisplay');
+
+        // Power info card toggle
+        const powerInfoHeader = document.getElementById('powerInfoHeader');
+        const powerInfoToggle = document.getElementById('powerInfoToggle');
+        const powerInfoContent = document.getElementById('powerInfoContent');
+
+        powerInfoHeader.addEventListener('click', () => {
+            const isExpanded = powerInfoContent.classList.contains('expanded');
+            if (isExpanded) {
+                powerInfoContent.classList.remove('expanded');
+                powerInfoToggle.classList.remove('expanded');
+            } else {
+                powerInfoContent.classList.add('expanded');
+                powerInfoToggle.classList.add('expanded');
+            }
+        });
+
+        // Update power bar UI
+        function updatePowerBarUI() {
+            // Update bar width
+            powerBarFill.style.width = powerSystem.powerCharge + '%';
+
+            // Update color based on current power
+            const currentPower = POWERS[powerSystem.currentPowerIndex];
+            powerBarFill.style.background = currentPower.color;
+            powerBarFill.style.boxShadow = `0 0 10px ${currentPower.color}`;
+
+            // Show/hide ready indicator
+            if (powerSystem.powerReady) {
+                powerBarFill.classList.add('ready');
+                powerReadyText.classList.add('visible');
+                powerInfo.textContent = `READY: ${currentPower.name} — ${currentPower.description}`;
+            } else {
+                powerBarFill.classList.remove('ready');
+                powerReadyText.classList.remove('visible');
+                powerInfo.textContent = '';
+            }
+
+            // Update active power display
+            if (powerSystem.activePower) {
+                const remaining = Math.max(0, powerSystem.activePowerEndTime - performance.now()) / 1000;
+                activePowerDisplay.textContent = `${powerSystem.activePower.name} ACTIVE: ${remaining.toFixed(1)}s`;
+                activePowerDisplay.classList.add('visible');
+            } else {
+                activePowerDisplay.classList.remove('visible');
+            }
+        }
 
         // Stranger Things-Inspired Synthwave Music Generator
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -881,85 +1175,6 @@
             ctx.shadowBlur = 0;
         }
 
-        // Draw power UI
-        function drawPowerUI() {
-            const barX = 20;
-            const barY = canvas.height - 60;
-            const barWidth = 200;
-            const barHeight = 25;
-            const padding = 3;
-
-            // Label
-            ctx.fillStyle = '#ff0040';
-            ctx.font = 'bold 16px "Bebas Neue"';
-            ctx.textAlign = 'left';
-            ctx.shadowBlur = 5;
-            ctx.shadowColor = '#ff0040';
-            ctx.fillText('POWER', barX, barY - 10);
-
-            // Bar background
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = '#333';
-            ctx.fillRect(barX, barY, barWidth, barHeight);
-
-            // Bar fill
-            const fillWidth = (powerSystem.powerCharge / 100) * (barWidth - padding * 2);
-            if (fillWidth > 0) {
-                const currentPower = POWERS[powerSystem.currentPowerIndex];
-                ctx.fillStyle = currentPower.color;
-
-                // Glow effect when full
-                if (powerSystem.powerReady) {
-                    ctx.shadowBlur = 15;
-                    ctx.shadowColor = currentPower.color;
-                } else {
-                    ctx.shadowBlur = 5;
-                    ctx.shadowColor = currentPower.color;
-                }
-
-                ctx.fillRect(barX + padding, barY + padding, fillWidth, barHeight - padding * 2);
-            }
-
-            // Border
-            ctx.shadowBlur = 0;
-            ctx.strokeStyle = '#ff0040';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(barX, barY, barWidth, barHeight);
-
-            // Ready text
-            if (powerSystem.powerReady) {
-                ctx.fillStyle = '#ff6b9d';
-                ctx.font = 'bold 14px "Bebas Neue"';
-                ctx.shadowBlur = 10;
-                ctx.shadowColor = '#ff6b9d';
-                ctx.fillText('TAP P TO ACTIVATE', barX + barWidth + 15, barY + 18);
-            }
-
-            // Show current power info when ready
-            if (powerSystem.powerReady) {
-                const currentPower = POWERS[powerSystem.currentPowerIndex];
-                ctx.fillStyle = currentPower.color;
-                ctx.font = 'bold 12px "Bebas Neue"';
-                ctx.shadowBlur = 8;
-                ctx.shadowColor = currentPower.color;
-                ctx.fillText(`READY: ${currentPower.name} — ${currentPower.description}`, barX, barY - 25);
-            }
-
-            // Show active power timer
-            if (powerSystem.activePower) {
-                const remaining = Math.max(0, powerSystem.activePowerEndTime - performance.now()) / 1000;
-                ctx.fillStyle = '#ff0040';
-                ctx.font = 'bold 14px "Bebas Neue"';
-                ctx.shadowBlur = 10;
-                ctx.shadowColor = '#ff0040';
-                ctx.textAlign = 'center';
-                ctx.fillText(`${powerSystem.activePower.name} ACTIVE: ${remaining.toFixed(1)}s`, canvas.width / 2, 30);
-            }
-
-            ctx.shadowBlur = 0;
-            ctx.textAlign = 'left';
-        }
-
         function draw() {
             // Clear canvas with solid black
             ctx.shadowBlur = 0;
@@ -975,9 +1190,6 @@
 
             // Draw ball with bright cyan/pink glow
             drawCircle(ball.x, ball.y, ball.radius, '#ff6b9d');
-
-            // Draw power UI
-            drawPowerUI();
 
             // Draw game over screen
             if (game.isOver) {
@@ -1012,6 +1224,7 @@
 
             // Update power system (always)
             updatePower(dt);
+            updatePowerBarUI();
 
             // Skip update if game is over
             if (game.isOver) return;
