@@ -956,6 +956,264 @@
             powerSystem.powerReady = false;
         }
 
+        // ===== EXOTIC MATTER STABILITY SYSTEM =====
+
+        const stabilitySystem = {
+            stability: 100, // 0-100%
+            mode: "STABLE", // "STABLE" or "UNSTABLE"
+            stableTimer: 0, // Timer for stable phase (10 seconds)
+            unstableTimer: 0, // Timer for unstable phase (5 seconds)
+            STABLE_DURATION: 10000, // 10 seconds in ms
+            UNSTABLE_DURATION: 5000, // 5 seconds in ms
+            WARNING_THRESHOLD: 1000, // 1 second before instability
+            obstacles: [],
+            shakeIntensity: 0,
+            lastCollisionFrame: 0
+        };
+
+        // Generate random obstacles
+        function generateObstacles() {
+            const obstacles = [];
+            const count = 3 + Math.floor(Math.random() * 5); // 3-7 obstacles
+            const safeZoneX = 150; // Keep away from paddles
+            const safeZoneY = 100; // Buffer from edges
+
+            for (let i = 0; i < count; i++) {
+                let attempts = 0;
+                let validPosition = false;
+                let obstacle;
+
+                while (!validPosition && attempts < 50) {
+                    const width = 30 + Math.random() * 50; // 30-80px
+                    const height = 30 + Math.random() * 50;
+                    const x = safeZoneX + Math.random() * (canvas.width - 2 * safeZoneX - width);
+                    const y = safeZoneY + Math.random() * (canvas.height - 2 * safeZoneY - height);
+
+                    obstacle = {
+                        x, y, width, height,
+                        driftX: (Math.random() - 0.5) * 0.3, // Subtle drift
+                        driftY: (Math.random() - 0.5) * 0.3,
+                        rotation: 0
+                    };
+
+                    // Check if too close to ball
+                    const distToBall = Math.hypot(ball.x - (x + width/2), ball.y - (y + height/2));
+                    if (distToBall > 100) {
+                        validPosition = true;
+                    }
+                    attempts++;
+                }
+
+                if (validPosition) {
+                    obstacles.push(obstacle);
+                }
+            }
+
+            return obstacles;
+        }
+
+        // Ball-obstacle collision
+        function checkObstacleCollisions(currentFrame) {
+            // Prevent double-collisions in same frame
+            if (stabilitySystem.lastCollisionFrame === currentFrame) return;
+
+            for (const obs of stabilitySystem.obstacles) {
+                // Simple AABB collision
+                const closestX = Math.max(obs.x, Math.min(ball.x, obs.x + obs.width));
+                const closestY = Math.max(obs.y, Math.min(ball.y, obs.y + obs.height));
+                const distX = ball.x - closestX;
+                const distY = ball.y - closestY;
+                const distance = Math.sqrt(distX * distX + distY * distY);
+
+                if (distance < ball.radius) {
+                    // Collision detected - determine reflection axis
+                    const overlapX = ball.radius - Math.abs(ball.x - (obs.x + obs.width / 2)) + obs.width / 2;
+                    const overlapY = ball.radius - Math.abs(ball.y - (obs.y + obs.height / 2)) + obs.height / 2;
+
+                    if (overlapX < overlapY) {
+                        ball.speedX = -ball.speedX;
+                        // Push ball out
+                        ball.x += ball.speedX > 0 ? 5 : -5;
+                    } else {
+                        ball.speedY = -ball.speedY;
+                        // Push ball out
+                        ball.y += ball.speedY > 0 ? 5 : -5;
+                    }
+
+                    stabilitySystem.lastCollisionFrame = currentFrame;
+                    return; // Only one collision per frame
+                }
+            }
+        }
+
+        // Update stability system
+        function updateStability(dt) {
+            if (game.isOver) return;
+
+            if (stabilitySystem.mode === "STABLE") {
+                // Drain stability over 10 seconds
+                stabilitySystem.stableTimer += dt;
+                stabilitySystem.stability = 100 - (stabilitySystem.stableTimer / stabilitySystem.STABLE_DURATION) * 100;
+                stabilitySystem.stability = Math.max(0, stabilitySystem.stability);
+
+                // Check if we hit 0%
+                if (stabilitySystem.stability <= 0) {
+                    // Enter UNSTABLE mode
+                    stabilitySystem.mode = "UNSTABLE";
+                    stabilitySystem.unstableTimer = 0;
+                    stabilitySystem.shakeIntensity = 1;
+                    stabilitySystem.obstacles = generateObstacles();
+                }
+            } else if (stabilitySystem.mode === "UNSTABLE") {
+                // Unstable phase lasts 5 seconds
+                stabilitySystem.unstableTimer += dt;
+
+                // Taper shake intensity
+                stabilitySystem.shakeIntensity = Math.max(0, 1 - stabilitySystem.unstableTimer / stabilitySystem.UNSTABLE_DURATION);
+
+                // Update obstacles (subtle drift)
+                for (const obs of stabilitySystem.obstacles) {
+                    obs.x += obs.driftX;
+                    obs.y += obs.driftY;
+                    obs.rotation += 0.01;
+
+                    // Keep in bounds
+                    obs.x = Math.max(0, Math.min(canvas.width - obs.width, obs.x));
+                    obs.y = Math.max(0, Math.min(canvas.height - obs.height, obs.y));
+                }
+
+                // Check collisions
+                checkObstacleCollisions(performance.now());
+
+                // Check if unstable phase is over
+                if (stabilitySystem.unstableTimer >= stabilitySystem.UNSTABLE_DURATION) {
+                    // Return to STABLE
+                    stabilitySystem.mode = "STABLE";
+                    stabilitySystem.stability = 100;
+                    stabilitySystem.stableTimer = 0;
+                    stabilitySystem.obstacles = [];
+                    stabilitySystem.shakeIntensity = 0;
+                }
+            }
+        }
+
+        // Draw stability bar (right side)
+        function drawStabilityBar() {
+            const barX = canvas.width - 50;
+            const barY = 100;
+            const barWidth = 30;
+            const barHeight = 400;
+
+            ctx.save();
+
+            // Label
+            ctx.save();
+            ctx.translate(barX + barWidth / 2, barY - 40);
+            ctx.rotate(-Math.PI / 2);
+            ctx.fillStyle = '#ff0040';
+            ctx.font = 'bold 14px "Bebas Neue"';
+            ctx.textAlign = 'center';
+            ctx.shadowBlur = 5;
+            ctx.shadowColor = '#ff0040';
+            ctx.fillText('EXOTIC MATTER', 0, 0);
+            ctx.restore();
+
+            // Bar background
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(barX, barY, barWidth, barHeight);
+            ctx.strokeStyle = '#ff0040';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(barX, barY, barWidth, barHeight);
+
+            // Bar fill (from bottom)
+            const fillHeight = (stabilitySystem.stability / 100) * barHeight;
+            const fillY = barY + barHeight - fillHeight;
+
+            if (stabilitySystem.mode === "STABLE") {
+                // Normal gradient
+                const gradient = ctx.createLinearGradient(barX, fillY, barX, barY + barHeight);
+                gradient.addColorStop(0, '#ff6b9d');
+                gradient.addColorStop(1, '#ff0040');
+                ctx.fillStyle = gradient;
+
+                // Pulse if low stability
+                if (stabilitySystem.stability < 20) {
+                    const pulse = Math.sin(Date.now() / 100) * 0.5 + 0.5;
+                    ctx.shadowBlur = 10 + pulse * 10;
+                    ctx.shadowColor = '#ff0040';
+                } else {
+                    ctx.shadowBlur = 5;
+                    ctx.shadowColor = '#ff0040';
+                }
+
+                ctx.fillRect(barX + 2, fillY, barWidth - 4, fillHeight);
+            } else {
+                // Unstable - glitchy/flickering
+                const flicker = Math.random() > 0.5 ? 1 : 0.5;
+                ctx.globalAlpha = flicker;
+                ctx.fillStyle = '#ff0040';
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = '#ff0040';
+                ctx.fillRect(barX + 2, barY + 2, barWidth - 4, barHeight - 4);
+                ctx.globalAlpha = 1;
+            }
+
+            // Percentage text
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = stabilitySystem.mode === "STABLE" ? '#ff6b9d' : '#ff0040';
+            ctx.font = 'bold 12px "Bebas Neue"';
+            ctx.textAlign = 'center';
+            ctx.fillText(Math.floor(stabilitySystem.stability) + '%', barX + barWidth / 2, barY + barHeight + 20);
+
+            // Warning flash if near instability
+            if (stabilitySystem.mode === "STABLE" && stabilitySystem.stableTimer > (stabilitySystem.STABLE_DURATION - stabilitySystem.WARNING_THRESHOLD)) {
+                const flash = Math.sin(Date.now() / 50) > 0;
+                if (flash) {
+                    ctx.fillStyle = 'rgba(255, 0, 64, 0.3)';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                }
+            }
+
+            // Unstable alert overlay
+            if (stabilitySystem.mode === "UNSTABLE") {
+                ctx.fillStyle = 'rgba(255, 0, 64, 0.2)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Alert text
+                ctx.fillStyle = '#ff0040';
+                ctx.font = 'bold 36px "Bebas Neue"';
+                ctx.textAlign = 'center';
+                ctx.shadowBlur = 30;
+                ctx.shadowColor = '#ff0040';
+                const alertText = stabilitySystem.unstableTimer < 1000 ? 'REALITY FRACTURE' : 'STABILITY LOST';
+                ctx.fillText(alertText, canvas.width / 2, 80);
+            }
+
+            ctx.restore();
+        }
+
+        // Draw obstacles
+        function drawObstacles() {
+            ctx.save();
+            ctx.shadowBlur = 5;
+            ctx.shadowColor = '#ff6b9d';
+
+            for (const obs of stabilitySystem.obstacles) {
+                ctx.save();
+                ctx.translate(obs.x + obs.width / 2, obs.y + obs.height / 2);
+                ctx.rotate(obs.rotation);
+                ctx.fillStyle = 'rgba(255, 107, 157, 0.6)';
+                ctx.fillRect(-obs.width / 2, -obs.height / 2, obs.width, obs.height);
+                ctx.strokeStyle = '#ff6b9d';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(-obs.width / 2, -obs.height / 2, obs.width, obs.height);
+                ctx.restore();
+            }
+
+            ctx.restore();
+        }
+
         const ball = {
             x: canvas.width / 2,
             y: canvas.height / 2,
@@ -1226,8 +1484,26 @@
             ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+            // Apply screen shake/tilt if unstable
+            ctx.save();
+            if (stabilitySystem.mode === "UNSTABLE" && stabilitySystem.shakeIntensity > 0) {
+                const shake = stabilitySystem.shakeIntensity;
+                const offsetX = (Math.random() - 0.5) * 10 * shake;
+                const offsetY = (Math.random() - 0.5) * 10 * shake;
+                const rotation = (Math.random() - 0.5) * 0.05 * shake;
+
+                ctx.translate(canvas.width / 2, canvas.height / 2);
+                ctx.rotate(rotation);
+                ctx.translate(-canvas.width / 2 + offsetX, -canvas.height / 2 + offsetY);
+            }
+
             // Draw net
             drawNet();
+
+            // Draw obstacles (rift debris)
+            if (stabilitySystem.obstacles.length > 0) {
+                drawObstacles();
+            }
 
             // Draw paddles with neon red glow
             drawRect(player.x, player.y, player.width, player.height, '#ff0040');
@@ -1235,6 +1511,11 @@
 
             // Draw ball with bright cyan/pink glow
             drawCircle(ball.x, ball.y, ball.radius, '#ff6b9d');
+
+            ctx.restore(); // End shake transform
+
+            // Draw stability bar (not affected by shake)
+            drawStabilityBar();
 
             // Draw game over screen
             if (game.isOver) {
@@ -1270,6 +1551,9 @@
             // Update power system (always)
             updatePower(dt);
             updatePowerBarUI();
+
+            // Update stability system (always)
+            updateStability(dt);
 
             // Skip update if game is over
             if (game.isOver) return;
@@ -1407,6 +1691,13 @@
                 powerSystem.activePower.onEnd();
                 powerSystem.activePower = null;
             }
+            // Reset stability system
+            stabilitySystem.mode = "STABLE";
+            stabilitySystem.stability = 100;
+            stabilitySystem.stableTimer = 0;
+            stabilitySystem.unstableTimer = 0;
+            stabilitySystem.obstacles = [];
+            stabilitySystem.shakeIntensity = 0;
         }
 
         // Game loop with delta time
