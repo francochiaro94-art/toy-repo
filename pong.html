@@ -57,7 +57,7 @@
     <canvas id="gameCanvas" width="800" height="600"></canvas>
     <div id="instructions">
         Use Arrow Keys (Up/Down) or Mouse to control left paddle<br>
-        First to 5 wins!
+        First to 5 wins! Press SPACE or ENTER to restart after game over.
     </div>
 
     <script>
@@ -68,7 +68,9 @@
         const game = {
             playerScore: 0,
             computerScore: 0,
-            maxScore: 5
+            maxScore: 5,
+            isOver: false,
+            isPaused: false
         };
 
         const ball = {
@@ -106,10 +108,21 @@
         };
 
         let mouseY = canvas.height / 2;
+        let usingKeyboard = false;
 
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'ArrowUp') keys.up = true;
-            if (e.key === 'ArrowDown') keys.down = true;
+            if (e.key === 'ArrowUp') {
+                keys.up = true;
+                usingKeyboard = true;
+            }
+            if (e.key === 'ArrowDown') {
+                keys.down = true;
+                usingKeyboard = true;
+            }
+            if ((e.key === ' ' || e.key === 'Enter') && game.isOver) {
+                e.preventDefault();
+                resetGame();
+            }
         });
 
         document.addEventListener('keyup', (e) => {
@@ -120,6 +133,7 @@
         canvas.addEventListener('mousemove', (e) => {
             const rect = canvas.getBoundingClientRect();
             mouseY = e.clientY - rect.top;
+            usingKeyboard = false;
         });
 
         // Draw functions
@@ -159,25 +173,46 @@
 
             // Draw ball
             drawCircle(ball.x, ball.y, ball.radius, '#fff');
+
+            // Draw game over screen
+            if (game.isOver) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 48px "Courier New"';
+                ctx.textAlign = 'center';
+
+                const winner = game.playerScore >= game.maxScore ? 'PLAYER WINS!' : 'COMPUTER WINS!';
+                ctx.fillText(winner, canvas.width / 2, canvas.height / 2 - 40);
+
+                ctx.font = '24px "Courier New"';
+                ctx.fillText('Press SPACE or ENTER to restart', canvas.width / 2, canvas.height / 2 + 20);
+            }
         }
 
         // Update game logic
         function update() {
-            // Move player paddle with keyboard
-            if (keys.up && player.y > 0) {
-                player.y -= player.speed;
-            }
-            if (keys.down && player.y < canvas.height - player.height) {
-                player.y += player.speed;
-            }
+            // Skip update if game is over
+            if (game.isOver) return;
 
-            // Move player paddle with mouse
-            const targetY = mouseY - player.height / 2;
-            if (Math.abs(targetY - player.y) > 2) {
-                if (targetY > player.y && player.y < canvas.height - player.height) {
-                    player.y += player.speed;
-                } else if (targetY < player.y && player.y > 0) {
+            // Move player paddle with keyboard OR mouse (not both)
+            if (usingKeyboard) {
+                if (keys.up && player.y > 0) {
                     player.y -= player.speed;
+                }
+                if (keys.down && player.y < canvas.height - player.height) {
+                    player.y += player.speed;
+                }
+            } else {
+                // Move player paddle with mouse
+                const targetY = mouseY - player.height / 2;
+                if (Math.abs(targetY - player.y) > 2) {
+                    if (targetY > player.y && player.y < canvas.height - player.height) {
+                        player.y += player.speed;
+                    } else if (targetY < player.y && player.y > 0) {
+                        player.y -= player.speed;
+                    }
                 }
             }
 
@@ -259,11 +294,7 @@
 
             // Check for game over
             if (game.playerScore >= game.maxScore || game.computerScore >= game.maxScore) {
-                const winner = game.playerScore >= game.maxScore ? 'Player' : 'Computer';
-                setTimeout(() => {
-                    alert(`${winner} wins!`);
-                    resetGame();
-                }, 100);
+                game.isOver = true;
             }
         }
 
@@ -282,8 +313,12 @@
         function resetGame() {
             game.playerScore = 0;
             game.computerScore = 0;
+            game.isOver = false;
             updateScore();
             resetBall(Math.random() > 0.5 ? 1 : -1);
+            // Reset paddle positions
+            player.y = canvas.height / 2 - paddleHeight / 2;
+            computer.y = canvas.height / 2 - paddleHeight / 2;
         }
 
         // Game loop
