@@ -706,6 +706,13 @@
 
         // Update power bar UI
         function updatePowerBarUI() {
+            // Clear center-screen displays when game is over
+            if (game.isOver) {
+                activePowerDisplay.classList.remove('visible');
+                activePowerDisplay.textContent = '';
+                return;
+            }
+
             // Update bar width
             powerBarFill.style.width = powerSystem.powerCharge + '%';
 
@@ -760,6 +767,13 @@
 
         // Update stability bar UI
         function updateStabilityBarUI() {
+            // Clear alerts when game is over
+            if (game.isOver) {
+                stabilityAlert.classList.remove('visible');
+                stabilityAlert.textContent = '';
+                return;
+            }
+
             // Update bar height (fills from bottom)
             stabilityBarFill.style.height = stabilitySystem.stability + '%';
 
@@ -1976,12 +1990,6 @@
             // Check for game over
             if (game.playerScore >= game.maxScore || game.computerScore >= game.maxScore) {
                 game.isOver = true;
-
-                // Clear all center-screen messages to avoid overlap with game over message
-                stabilityAlert.classList.remove('visible');
-                stabilityAlert.textContent = '';
-                activePowerDisplay.classList.remove('visible');
-                activePowerDisplay.textContent = '';
             }
         }
 
