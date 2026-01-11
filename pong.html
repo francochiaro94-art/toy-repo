@@ -46,9 +46,32 @@
             min-width: 50px;
             text-align: center;
         }
+
+        #muteButton {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: #333;
+            color: #fff;
+            border: 2px solid #fff;
+            padding: 10px 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        #muteButton:hover {
+            background: #555;
+        }
+
+        #muteButton.muted {
+            background: #800;
+        }
     </style>
 </head>
 <body>
+    <button id="muteButton">🔊 MUSIC ON</button>
     <div id="scoreboard">
         <span class="score" id="playerScore">0</span>
         <span>-</span>
@@ -63,6 +86,97 @@
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+
+        // 90s Style Music Generator
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let isMuted = false;
+
+        // Create master gain for volume control
+        const masterGain = audioCtx.createGain();
+        masterGain.gain.value = 0.3;
+        masterGain.connect(audioCtx.destination);
+
+        // 90s arcade-style melody notes (C major scale pentatonic)
+        const melody = [
+            { note: 523.25, duration: 0.2 },  // C5
+            { note: 659.25, duration: 0.2 },  // E5
+            { note: 783.99, duration: 0.2 },  // G5
+            { note: 659.25, duration: 0.2 },  // E5
+            { note: 523.25, duration: 0.2 },  // C5
+            { note: 587.33, duration: 0.2 },  // D5
+            { note: 659.25, duration: 0.4 },  // E5
+            { note: 523.25, duration: 0.2 },  // C5
+            { note: 659.25, duration: 0.2 },  // E5
+            { note: 783.99, duration: 0.2 },  // G5
+            { note: 880.00, duration: 0.2 },  // A5
+            { note: 783.99, duration: 0.2 },  // G5
+            { note: 659.25, duration: 0.2 },  // E5
+            { note: 523.25, duration: 0.4 }   // C5
+        ];
+
+        // Bass notes
+        const bass = [261.63, 196.00, 220.00, 246.94]; // C4, G3, A3, B3
+
+        let melodyIndex = 0;
+        let bassIndex = 0;
+
+        function playNote(frequency, duration, waveType = 'square') {
+            if (isMuted) return;
+
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            oscillator.type = waveType;
+            oscillator.frequency.value = frequency;
+
+            gainNode.gain.value = 0.1;
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+
+            oscillator.connect(gainNode);
+            gainNode.connect(masterGain);
+
+            oscillator.start(audioCtx.currentTime);
+            oscillator.stop(audioCtx.currentTime + duration);
+        }
+
+        function playMelody() {
+            const note = melody[melodyIndex];
+            playNote(note.note, note.duration, 'square');
+
+            melodyIndex = (melodyIndex + 1) % melody.length;
+
+            setTimeout(playMelody, note.duration * 1000);
+        }
+
+        function playBass() {
+            const frequency = bass[bassIndex];
+            playNote(frequency, 0.4, 'triangle');
+
+            bassIndex = (bassIndex + 1) % bass.length;
+
+            setTimeout(playBass, 400);
+        }
+
+        // Mute button handler
+        const muteButton = document.getElementById('muteButton');
+        muteButton.addEventListener('click', () => {
+            isMuted = !isMuted;
+            if (isMuted) {
+                muteButton.textContent = '🔇 MUSIC OFF';
+                muteButton.classList.add('muted');
+                masterGain.gain.value = 0;
+            } else {
+                muteButton.textContent = '🔊 MUSIC ON';
+                muteButton.classList.remove('muted');
+                masterGain.gain.value = 0.3;
+            }
+        });
+
+        // Start the music
+        setTimeout(() => {
+            playMelody();
+            playBass();
+        }, 100);
 
         // Game objects
         const game = {
