@@ -461,6 +461,162 @@
             isPaused: false
         };
 
+        // ===== POWER SYSTEM =====
+
+        const powerSystem = {
+            hitStreak: 0,
+            powerCharge: 0, // 0-100
+            powerReady: false,
+            currentPowerIndex: 0,
+            activePower: null,
+            activePowerEndTime: 0
+        };
+
+        // Power definitions (Stranger Things themed)
+        const POWERS = [
+            {
+                name: "UPSIDE DOWN",
+                description: "Slow time - ball moves at 60% speed",
+                duration: 4000, // 4 seconds
+                color: '#ff0040',
+                onActivate() {
+                    this.originalSpeedX = ball.speedX;
+                    this.originalSpeedY = ball.speedY;
+                    ball.speedX *= 0.6;
+                    ball.speedY *= 0.6;
+                },
+                onUpdate(dt) {},
+                onEnd() {
+                    ball.speedX = this.originalSpeedX;
+                    ball.speedY = this.originalSpeedY;
+                }
+            },
+            {
+                name: "PSYCHIC SHIELD",
+                description: "Paddle expands by 50% height",
+                duration: 5000, // 5 seconds
+                color: '#ff6b9d',
+                onActivate() {
+                    this.originalHeight = player.height;
+                    player.height *= 1.5;
+                },
+                onUpdate(dt) {},
+                onEnd() {
+                    player.height = this.originalHeight;
+                }
+            },
+            {
+                name: "MIND FOG",
+                description: "Computer reaction slowed",
+                duration: 5000, // 5 seconds
+                color: '#ff0040',
+                onActivate() {
+                    this.originalSpeed = computer.speed;
+                    computer.speed *= 0.4; // 40% of normal speed
+                },
+                onUpdate(dt) {},
+                onEnd() {
+                    computer.speed = this.originalSpeed;
+                }
+            },
+            {
+                name: "PORTAL JUMP",
+                description: "Ball teleports forward once at midline",
+                duration: 10000, // 10 seconds window
+                color: '#ff6b9d',
+                onActivate() {
+                    this.hasJumped = false;
+                },
+                onUpdate(dt) {
+                    // Trigger teleport when ball crosses midline moving right
+                    if (!this.hasJumped && ball.x > canvas.width / 2 && ball.speedX > 0) {
+                        ball.x += 100; // Teleport 100px forward
+                        this.hasJumped = true;
+                        // End power immediately after use
+                        powerSystem.activePowerEndTime = 0;
+                    }
+                },
+                onEnd() {
+                    this.hasJumped = false;
+                }
+            },
+            {
+                name: "VECNA'S PULL",
+                description: "Ball curves toward your paddle",
+                duration: 4000, // 4 seconds
+                color: '#ff0040',
+                onActivate() {},
+                onUpdate(dt) {
+                    // Apply subtle upward/downward force toward paddle center
+                    const paddleCenter = player.y + player.height / 2;
+                    const diff = paddleCenter - ball.y;
+                    const pullStrength = 0.15; // pixels per frame
+
+                    if (Math.abs(diff) > 5) {
+                        ball.y += Math.sign(diff) * pullStrength;
+                    }
+                },
+                onEnd() {}
+            }
+        ];
+
+        // Get next power (cycle through)
+        function getNextPower() {
+            powerSystem.currentPowerIndex = (powerSystem.currentPowerIndex + 1) % POWERS.length;
+            return POWERS[powerSystem.currentPowerIndex];
+        }
+
+        // Activate current power
+        function activatePower() {
+            if (!powerSystem.powerReady || game.isOver) return;
+
+            const power = POWERS[powerSystem.currentPowerIndex];
+            powerSystem.activePower = power;
+            powerSystem.activePowerEndTime = performance.now() + power.duration;
+            powerSystem.powerReady = false;
+            powerSystem.powerCharge = 0;
+            powerSystem.hitStreak = 0;
+
+            // Call power's activate function
+            power.onActivate();
+
+            // Move to next power
+            getNextPower();
+        }
+
+        // Update active power
+        function updatePower(dt) {
+            if (powerSystem.activePower) {
+                const now = performance.now();
+
+                // Update power logic
+                powerSystem.activePower.onUpdate(dt);
+
+                // Check if power expired
+                if (now >= powerSystem.activePowerEndTime) {
+                    powerSystem.activePower.onEnd();
+                    powerSystem.activePower = null;
+                }
+            }
+        }
+
+        // Increment hit streak (call when player hits ball)
+        function incrementHitStreak() {
+            powerSystem.hitStreak++;
+            powerSystem.powerCharge = Math.min(powerSystem.hitStreak * 20, 100);
+
+            if (powerSystem.powerCharge >= 100) {
+                powerSystem.powerReady = true;
+            }
+        }
+
+        // Reset hit streak (call when player misses)
+        function resetHitStreak() {
+            powerSystem.hitStreak = 0;
+            powerSystem.powerCharge = 0;
+            powerSystem.powerReady = false;
+        }
+
         const ball = {
             x: canvas.width / 2,
             y: canvas.height / 2,
@@ -510,6 +666,11 @@
             if ((e.key === ' ' || e.key === 'Enter') && game.isOver) {
                 e.preventDefault();
                 resetGame();
+            }
+            // Power activation
+            if (e.key === 'p' || e.key === 'P') {
+                e.preventDefault();
+                activatePower();
             }
         });
 
@@ -720,6 +881,85 @@
             ctx.shadowBlur = 0;
         }
 
+        // Draw power UI
+        function drawPowerUI() {
+            const barX = 20;
+            const barY = canvas.height - 60;
+            const barWidth = 200;
+            const barHeight = 25;
+            const padding = 3;
+
+            // Label
+            ctx.fillStyle = '#ff0040';
+            ctx.font = 'bold 16px "Bebas Neue"';
+            ctx.textAlign = 'left';
+            ctx.shadowBlur = 5;
+            ctx.shadowColor = '#ff0040';
+            ctx.fillText('POWER', barX, barY - 10);
+
+            // Bar background
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#333';
+            ctx.fillRect(barX, barY, barWidth, barHeight);
+
+            // Bar fill
+            const fillWidth = (powerSystem.powerCharge / 100) * (barWidth - padding * 2);
+            if (fillWidth > 0) {
+                const currentPower = POWERS[powerSystem.currentPowerIndex];
+                ctx.fillStyle = currentPower.color;
+
+                // Glow effect when full
+                if (powerSystem.powerReady) {
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = currentPower.color;
+                } else {
+                    ctx.shadowBlur = 5;
+                    ctx.shadowColor = currentPower.color;
+                }
+
+                ctx.fillRect(barX + padding, barY + padding, fillWidth, barHeight - padding * 2);
+            }
+
+            // Border
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = '#ff0040';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(barX, barY, barWidth, barHeight);
+
+            // Ready text
+            if (powerSystem.powerReady) {
+                ctx.fillStyle = '#ff6b9d';
+                ctx.font = 'bold 14px "Bebas Neue"';
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#ff6b9d';
+                ctx.fillText('TAP P TO ACTIVATE', barX + barWidth + 15, barY + 18);
+            }
+
+            // Show current power info when ready
+            if (powerSystem.powerReady) {
+                const currentPower = POWERS[powerSystem.currentPowerIndex];
+                ctx.fillStyle = currentPower.color;
+                ctx.font = 'bold 12px "Bebas Neue"';
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = currentPower.color;
+                ctx.fillText(`READY: ${currentPower.name} — ${currentPower.description}`, barX, barY - 25);
+            }
+
+            // Show active power timer
+            if (powerSystem.activePower) {
+                const remaining = Math.max(0, powerSystem.activePowerEndTime - performance.now()) / 1000;
+                ctx.fillStyle = '#ff0040';
+                ctx.font = 'bold 14px "Bebas Neue"';
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#ff0040';
+                ctx.textAlign = 'center';
+                ctx.fillText(`${powerSystem.activePower.name} ACTIVE: ${remaining.toFixed(1)}s`, canvas.width / 2, 30);
+            }
+
+            ctx.shadowBlur = 0;
+            ctx.textAlign = 'left';
+        }
+
         function draw() {
             // Clear canvas with solid black
             ctx.shadowBlur = 0;
@@ -735,6 +975,9 @@
 
             // Draw ball with bright cyan/pink glow
             drawCircle(ball.x, ball.y, ball.radius, '#ff6b9d');
+
+            // Draw power UI
+            drawPowerUI();
 
             // Draw game over screen
             if (game.isOver) {
@@ -762,10 +1005,13 @@
         }
 
         // Update game logic
-        function update() {
+        function update(dt) {
             // Update and draw particles (always, even when game is over)
             updateParticles();
             drawParticles();
+
+            // Update power system (always)
+            updatePower(dt);
 
             // Skip update if game is over
             if (game.isOver) return;
@@ -832,6 +1078,9 @@
                 // Increase speed slightly
                 ball.speedX = Math.min(ball.speedX * 1.05, ball.maxSpeed);
                 ball.speedY = Math.min(Math.abs(ball.speedY) * 1.05, ball.maxSpeed) * Math.sign(ball.speedY);
+
+                // Increment hit streak for power system
+                incrementHitStreak();
             }
 
             // Ball collision with computer paddle
@@ -855,10 +1104,11 @@
 
             // Score detection
             if (ball.x - ball.radius <= 0) {
-                // Computer scores
+                // Computer scores (player missed)
                 game.computerScore++;
                 updateScore();
                 resetBall(1);
+                resetHitStreak(); // Reset power charge on miss
             } else if (ball.x + ball.radius >= canvas.width) {
                 // Player scores
                 game.playerScore++;
@@ -893,18 +1143,28 @@
             // Reset paddle positions
             player.y = canvas.height / 2 - paddleHeight / 2;
             computer.y = canvas.height / 2 - paddleHeight / 2;
+            // Reset power system
+            resetHitStreak();
+            if (powerSystem.activePower) {
+                powerSystem.activePower.onEnd();
+                powerSystem.activePower = null;
+            }
         }
 
-        // Game loop
-        function gameLoop() {
-            update();
+        // Game loop with delta time
+        let lastTime = performance.now();
+        function gameLoop(currentTime) {
+            const dt = currentTime - lastTime;
+            lastTime = currentTime;
+
+            update(dt);
             draw();
             requestAnimationFrame(gameLoop);
         }
 
         // Start game
         resetBall(-1);
-        gameLoop();
+        requestAnimationFrame(gameLoop);
     </script>
 </body>
 </html>
