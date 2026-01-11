@@ -1976,6 +1976,12 @@
             // Check for game over
             if (game.playerScore >= game.maxScore || game.computerScore >= game.maxScore) {
                 game.isOver = true;
+
+                // Clear all center-screen messages to avoid overlap with game over message
+                stabilityAlert.classList.remove('visible');
+                stabilityAlert.textContent = '';
+                activePowerDisplay.classList.remove('visible');
+                activePowerDisplay.textContent = '';
             }
         }
 
