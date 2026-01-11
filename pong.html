@@ -1985,6 +1985,8 @@
                 game.playerScore++;
                 updateScore();
                 resetBall(-1);
+                // Deactivate Telekinesis so player can control paddle with arrow keys
+                telekinesisSystem.active = false;
             }
 
             // Check for game over
