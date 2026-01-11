@@ -1990,6 +1990,17 @@
             // Check for game over
             if (game.playerScore >= game.maxScore || game.computerScore >= game.maxScore) {
                 game.isOver = true;
+
+                // Immediately hide stability alert (bypass CSS transition)
+                stabilityAlert.style.opacity = '0';
+                stabilityAlert.style.display = 'none';
+                stabilityAlert.classList.remove('visible');
+                stabilityAlert.textContent = '';
+
+                // Immediately hide active power display
+                activePowerDisplay.style.opacity = '0';
+                activePowerDisplay.classList.remove('visible');
+                activePowerDisplay.textContent = '';
             }
         }
 
@@ -2029,6 +2040,11 @@
             stabilitySystem.unstableTimer = 0;
             stabilitySystem.obstacles = [];
             stabilitySystem.shakeIntensity = 0;
+
+            // Reset UI element styles
+            stabilityAlert.style.display = '';
+            stabilityAlert.style.opacity = '';
+            activePowerDisplay.style.opacity = '';
         }
 
         // Game loop with delta time
