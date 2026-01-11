@@ -816,9 +816,9 @@
         masterGain.connect(audioCtx.destination);
 
         // ===== TIMING & SEQUENCER =====
-        const BPM = 84;
-        const quarterNoteTime = 60 / BPM; // ~0.714s
-        const sixteenthNoteTime = quarterNoteTime / 4; // ~0.178s
+        const BPM = 76; // Slower, more hypnotic 80s tempo
+        const quarterNoteTime = 60 / BPM; // ~0.789s
+        const sixteenthNoteTime = quarterNoteTime / 4; // ~0.197s
         const scheduleAheadTime = 0.1; // Schedule 100ms ahead
         const lookaheadInterval = 25; // Check every 25ms
 
@@ -827,53 +827,51 @@
         let timerID;
 
         // ===== MUSICAL DATA (C MINOR) =====
-        // Original hypnotic arpeggio inspired by i-VI-III-VII progression
-        // Cm (C Eb G) → Ab (Ab C Eb) → Eb (Eb G Bb) → Bb (Bb D F)
+        // Minimal hypnotic arpeggio - 80s synthwave style
+        // Simple Cm triad pattern with octave emphasis
         const arpPattern = [
-            // Bar 1-2: Cm arpeggio
-            { note: 523.25, step: 0 },  // C5
-            { note: 622.25, step: 2 },  // Eb5
-            { note: 783.99, step: 4 },  // G5
-            { note: 622.25, step: 6 },  // Eb5
-            // Bar 3-4: Ab arpeggio
-            { note: 830.61, step: 8 },  // Ab5
-            { note: 523.25, step: 10 }, // C5
-            { note: 622.25, step: 12 }, // Eb5
-            { note: 523.25, step: 14 }, // C5
-            // Bar 5-6: Eb arpeggio
-            { note: 622.25, step: 16 }, // Eb5
-            { note: 783.99, step: 18 }, // G5
-            { note: 932.33, step: 20 }, // Bb5
-            { note: 783.99, step: 22 }, // G5
-            // Bar 7-8: Bb arpeggio
-            { note: 932.33, step: 24 }, // Bb5
-            { note: 587.33, step: 26 }, // D5
-            { note: 698.46, step: 28 }, // F5
-            { note: 587.33, step: 30 }, // D5
+            // Simple repeating pattern for hypnotic effect
+            { note: 523.25, step: 0 },   // C5
+            { note: 783.99, step: 2 },   // G5
+            { note: 622.25, step: 4 },   // Eb5
+            { note: 783.99, step: 6 },   // G5
+            { note: 523.25, step: 8 },   // C5
+            { note: 783.99, step: 10 },  // G5
+            { note: 622.25, step: 12 },  // Eb5
+            { note: 1046.50, step: 14 }, // C6 (octave up for lift)
+            // Second half with slight variation
+            { note: 523.25, step: 16 },  // C5
+            { note: 783.99, step: 18 },  // G5
+            { note: 622.25, step: 20 },  // Eb5
+            { note: 783.99, step: 22 },  // G5
+            { note: 466.16, step: 24 },  // Bb4 (lower for darkness)
+            { note: 698.46, step: 26 },  // F5
+            { note: 587.33, step: 28 },  // D5
+            { note: 698.46, step: 30 },  // F5
         ];
 
         const bassPattern = [
-            { note: 130.81, step: 0, duration: 8 },  // C3 (hold for 8 16ths)
-            { note: 207.65, step: 8, duration: 8 },  // Ab3
-            { note: 155.56, step: 16, duration: 8 }, // Eb3
-            { note: 233.08, step: 24, duration: 8 }, // Bb3
+            { note: 130.81, step: 0, duration: 16 },  // C3 (hold longer - more minimal)
+            { note: 116.54, step: 16, duration: 16 }, // Bb2 (darker, lower)
         ];
 
         // ===== EFFECTS CREATION =====
 
-        // Impulse reverb (simple convolver)
+        // Deep 80s-style reverb (dark cavernous space)
         function createReverb() {
             const convolver = audioCtx.createConvolver();
             const rate = audioCtx.sampleRate;
-            const length = rate * 2.5; // 2.5s decay
+            const length = rate * 3.5; // Longer 3.5s decay for depth
             const impulse = audioCtx.createBuffer(2, length, rate);
             const left = impulse.getChannelData(0);
             const right = impulse.getChannelData(1);
 
             for (let i = 0; i < length; i++) {
-                const decay = Math.exp(-4 * i / length);
-                left[i] = (Math.random() * 2 - 1) * decay * 0.5;
-                right[i] = (Math.random() * 2 - 1) * decay * 0.5;
+                const decay = Math.exp(-3 * i / length); // Slower decay
+                // Add some early reflections for vintage character
+                const earlyReflection = i < rate * 0.05 ? Math.sin(i / 100) * 0.3 : 0;
+                left[i] = (Math.random() * 2 - 1) * decay * 0.6 + earlyReflection;
+                right[i] = (Math.random() * 2 - 1) * decay * 0.6 + earlyReflection;
             }
 
             convolver.buffer = impulse;
@@ -921,7 +919,7 @@
         const bassShaper = createSaturation();
 
         const reverbWet = audioCtx.createGain();
-        reverbWet.gain.value = 0.12;
+        reverbWet.gain.value = 0.18; // More reverb for 80s depth
         reverbNode.connect(reverbWet);
         reverbWet.connect(masterGain);
 
@@ -929,48 +927,64 @@
 
         // ===== SOUND SYNTHESIS =====
 
-        // Arp synth: dual detuned saws with filter envelope
+        // Vintage 80s arp synth: detuned saws + pulse wave (Prophet-5 style)
         function playArpNote(frequency, time) {
             if (isMuted) return;
 
-            const noteLength = sixteenthNoteTime * 0.85;
+            const noteLength = sixteenthNoteTime * 0.9; // Slightly longer for smoothness
 
-            // Dual sawtooth oscillators (analog thickness)
-            const osc1 = audioCtx.createOscillator();
-            const osc2 = audioCtx.createOscillator();
-            osc1.type = 'sawtooth';
-            osc2.type = 'sawtooth';
-            osc1.frequency.value = frequency;
-            osc2.frequency.value = frequency;
-            osc1.detune.value = 10;  // +10 cents
-            osc2.detune.value = -10; // -10 cents
+            // Three-oscillator vintage stack
+            const saw1 = audioCtx.createOscillator();
+            const saw2 = audioCtx.createOscillator();
+            const pulse = audioCtx.createOscillator();
 
-            // Mixer
+            saw1.type = 'sawtooth';
+            saw2.type = 'sawtooth';
+            pulse.type = 'square'; // Square wave for pulse character
+
+            saw1.frequency.value = frequency;
+            saw2.frequency.value = frequency;
+            pulse.frequency.value = frequency;
+
+            saw1.detune.value = -8;  // Slight detune
+            saw2.detune.value = 8;
+            pulse.detune.value = -3; // Very subtle pulse detune
+
+            // Mix oscillators (more pulse for vintage warmth)
+            const sawMix = audioCtx.createGain();
+            const pulseMix = audioCtx.createGain();
+            sawMix.gain.value = 0.25;
+            pulseMix.gain.value = 0.18; // Pulse adds vintage character
+
+            saw1.connect(sawMix);
+            saw2.connect(sawMix);
+            pulse.connect(pulseMix);
+
             const mixer = audioCtx.createGain();
-            mixer.gain.value = 0.4;
-            osc1.connect(mixer);
-            osc2.connect(mixer);
+            mixer.gain.value = 1.0;
+            sawMix.connect(mixer);
+            pulseMix.connect(mixer);
 
-            // Lowpass filter with envelope
+            // Classic lowpass filter with resonance
             const filter = audioCtx.createBiquadFilter();
             filter.type = 'lowpass';
-            filter.Q.value = 4;
-            filter.frequency.value = 600;
+            filter.Q.value = 5; // Higher resonance for 80s character
+            filter.frequency.value = 500;
 
-            // Filter envelope: bright attack, quick decay
-            filter.frequency.setValueAtTime(3500, time);
-            filter.frequency.exponentialRampToValueAtTime(600, time + 0.08);
+            // Slower filter envelope for vintage feel
+            filter.frequency.setValueAtTime(2800, time);
+            filter.frequency.exponentialRampToValueAtTime(500, time + 0.12);
 
             mixer.connect(filter);
 
-            // Amplitude envelope (pumping feel)
+            // Smooth amplitude envelope
             const amp = audioCtx.createGain();
             amp.gain.value = 0;
             filter.connect(amp);
 
             amp.gain.setValueAtTime(0, time);
-            amp.gain.linearRampToValueAtTime(0.15, time + 0.003);
-            amp.gain.linearRampToValueAtTime(0.11, time + noteLength * 0.6);
+            amp.gain.linearRampToValueAtTime(0.14, time + 0.005);
+            amp.gain.linearRampToValueAtTime(0.10, time + noteLength * 0.7);
             amp.gain.linearRampToValueAtTime(0, time + noteLength);
 
             // Route to effects and master
@@ -978,46 +992,129 @@
             amp.connect(reverbNode);
             amp.connect(masterGain);
 
-            osc1.start(time);
-            osc2.start(time);
-            osc1.stop(time + noteLength);
-            osc2.stop(time + noteLength);
+            saw1.start(time);
+            saw2.start(time);
+            pulse.start(time);
+            saw1.stop(time + noteLength);
+            saw2.stop(time + noteLength);
+            pulse.stop(time + noteLength);
         }
 
-        // Bass synth: triangle/saw with heavy lowpass and saturation
+        // Thick 80s bass synth: layered oscillators with sub bass
         function playBassNote(frequency, time, duration) {
             if (isMuted) return;
 
-            const noteLength = sixteenthNoteTime * duration * 0.95;
+            const noteLength = sixteenthNoteTime * duration * 0.98;
 
-            const osc = audioCtx.createOscillator();
-            osc.type = 'triangle';
-            osc.frequency.value = frequency;
+            // Main bass oscillator (triangle for warmth)
+            const mainBass = audioCtx.createOscillator();
+            mainBass.type = 'triangle';
+            mainBass.frequency.value = frequency;
 
-            // Through saturation
-            osc.connect(bassShaper);
+            // Sub oscillator (one octave down for depth)
+            const subBass = audioCtx.createOscillator();
+            subBass.type = 'sine';
+            subBass.frequency.value = frequency / 2;
 
-            // Heavy lowpass
+            // Mix main and sub
+            const mainGain = audioCtx.createGain();
+            const subGain = audioCtx.createGain();
+            mainGain.gain.value = 0.6;
+            subGain.gain.value = 0.5; // Thick sub layer
+
+            mainBass.connect(mainGain);
+            subBass.connect(subGain);
+
+            const bassMixer = audioCtx.createGain();
+            bassMixer.gain.value = 1.0;
+            mainGain.connect(bassMixer);
+            subGain.connect(bassMixer);
+
+            // Through saturation for warmth
+            bassMixer.connect(bassShaper);
+
+            // Heavy lowpass filter
             const filter = audioCtx.createBiquadFilter();
             filter.type = 'lowpass';
-            filter.frequency.value = 350;
-            filter.Q.value = 2;
+            filter.frequency.value = 280; // Lower cutoff for darker bass
+            filter.Q.value = 1.5;
             bassShaper.connect(filter);
 
-            // Amp envelope
+            // Smooth amp envelope
             const amp = audioCtx.createGain();
             amp.gain.value = 0;
             filter.connect(amp);
 
             amp.gain.setValueAtTime(0, time);
-            amp.gain.linearRampToValueAtTime(0.28, time + 0.015);
-            amp.gain.linearRampToValueAtTime(0.22, time + noteLength - 0.03);
+            amp.gain.linearRampToValueAtTime(0.32, time + 0.02);
+            amp.gain.linearRampToValueAtTime(0.28, time + noteLength - 0.05);
             amp.gain.linearRampToValueAtTime(0, time + noteLength);
 
             amp.connect(masterGain);
 
-            osc.start(time);
-            osc.stop(time + noteLength);
+            mainBass.start(time);
+            subBass.start(time);
+            mainBass.stop(time + noteLength);
+            subBass.stop(time + noteLength);
+        }
+
+        // Atmospheric pad layer (dark ambient background)
+        let padNodes = null;
+
+        function createAtmosphericPad() {
+            if (isMuted || padNodes) return;
+
+            // Two detuned oscillators for thick pad sound
+            const pad1 = audioCtx.createOscillator();
+            const pad2 = audioCtx.createOscillator();
+            const pad3 = audioCtx.createOscillator();
+
+            pad1.type = 'triangle';
+            pad2.type = 'sawtooth';
+            pad3.type = 'sine';
+
+            // Root note C2 and fifth G2 for dark atmosphere
+            pad1.frequency.value = 65.41;  // C2
+            pad2.frequency.value = 65.41;
+            pad3.frequency.value = 98.00;  // G2
+
+            pad1.detune.value = -5;
+            pad2.detune.value = 5;
+            pad3.detune.value = 0;
+
+            // Mix pads softly
+            const padMix = audioCtx.createGain();
+            padMix.gain.value = 0;
+
+            pad1.connect(padMix);
+            pad2.connect(padMix);
+            pad3.connect(padMix);
+
+            // Dark lowpass filter
+            const padFilter = audioCtx.createBiquadFilter();
+            padFilter.type = 'lowpass';
+            padFilter.frequency.value = 400; // Very dark
+            padFilter.Q.value = 0.5;
+
+            padMix.connect(padFilter);
+
+            // Subtle volume
+            const padAmp = audioCtx.createGain();
+            padAmp.gain.value = 0.06; // Very quiet, just adds atmosphere
+
+            padFilter.connect(padAmp);
+            padAmp.connect(reverbNode); // Pad goes through reverb
+            padAmp.connect(masterGain);
+
+            // Fade in slowly
+            padMix.gain.setValueAtTime(0, audioCtx.currentTime);
+            padMix.gain.linearRampToValueAtTime(1.0, audioCtx.currentTime + 3);
+
+            pad1.start(audioCtx.currentTime);
+            pad2.start(audioCtx.currentTime);
+            pad3.start(audioCtx.currentTime);
+
+            padNodes = { pad1, pad2, pad3, padMix, padFilter, padAmp };
         }
 
         // ===== SEQUENCER =====
@@ -1061,6 +1158,9 @@
             if (audioCtx.state === 'suspended') {
                 audioCtx.resume();
             }
+
+            // Start atmospheric pad
+            createAtmosphericPad();
 
             // Start sequencer
             currentSixteenthNote = 0;
