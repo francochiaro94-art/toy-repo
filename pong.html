@@ -364,6 +364,121 @@
             opacity: 0.7;
             margin-top: 3px;
         }
+
+        /* Stability Bar Container (Right Margin) */
+        #stabilityBarContainer {
+            position: fixed;
+            right: 30px;
+            top: 200px;
+            z-index: 11;
+            width: 60px;
+            height: 450px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 15px 10px;
+            border: 2px solid #ff0040;
+            box-shadow:
+                0 0 10px rgba(255, 0, 64, 0.5),
+                inset 0 0 10px rgba(255, 0, 64, 0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #stabilityLabel {
+            font-size: 14px;
+            color: #ff0040;
+            text-shadow:
+                0 0 5px #ff0040,
+                0 0 10px #ff0040;
+            letter-spacing: 1px;
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            margin-bottom: 15px;
+            white-space: nowrap;
+        }
+
+        #stabilityBarOuter {
+            width: 30px;
+            height: 100%;
+            background: #1a1a1a;
+            border: 2px solid #ff0040;
+            box-shadow:
+                0 0 10px rgba(255, 0, 64, 0.5),
+                inset 0 0 10px rgba(0, 0, 0, 0.8);
+            position: relative;
+            overflow: hidden;
+            flex-grow: 1;
+        }
+
+        #stabilityBarFill {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to top, #ff0040, #ff6b9d);
+            transition: height 0.1s linear;
+            box-shadow: 0 0 10px rgba(255, 0, 64, 0.8);
+        }
+
+        #stabilityBarFill.low {
+            animation: stabilityPulse 0.2s infinite;
+        }
+
+        #stabilityBarFill.unstable {
+            animation: stabilityFlicker 0.1s infinite;
+        }
+
+        @keyframes stabilityPulse {
+            0%, 100% { box-shadow: 0 0 10px rgba(255, 0, 64, 0.8); }
+            50% { box-shadow: 0 0 20px rgba(255, 0, 64, 1), 0 0 30px rgba(255, 0, 64, 0.8); }
+        }
+
+        @keyframes stabilityFlicker {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        #stabilityPercent {
+            color: #ff6b9d;
+            font-size: 14px;
+            text-shadow:
+                0 0 5px #ff6b9d,
+                0 0 10px #ff6b9d;
+            letter-spacing: 1px;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+
+        #stabilityPercent.unstable {
+            color: #ff0040;
+            text-shadow:
+                0 0 5px #ff0040,
+                0 0 10px #ff0040;
+        }
+
+        /* Stability Alert Overlay */
+        #stabilityAlert {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ff0040;
+            font-size: 48px;
+            text-shadow:
+                0 0 20px #ff0040,
+                0 0 40px #ff0040,
+                0 0 60px #ff0040;
+            letter-spacing: 5px;
+            z-index: 11;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+
+        #stabilityAlert.visible {
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
@@ -434,6 +549,18 @@
         </div>
     </div>
 
+    <!-- Stability Bar (Right Margin) -->
+    <div id="stabilityBarContainer">
+        <div id="stabilityLabel">EXOTIC MATTER</div>
+        <div id="stabilityBarOuter">
+            <div id="stabilityBarFill"></div>
+        </div>
+        <div id="stabilityPercent">100%</div>
+    </div>
+
+    <!-- Stability Alert Overlay -->
+    <div id="stabilityAlert"></div>
+
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
@@ -455,6 +582,11 @@
         const powerReadyText = document.getElementById('powerReadyText');
         const powerInfo = document.getElementById('powerInfo');
         const activePowerDisplay = document.getElementById('activePowerDisplay');
+
+        // Stability UI DOM elements
+        const stabilityBarFill = document.getElementById('stabilityBarFill');
+        const stabilityPercent = document.getElementById('stabilityPercent');
+        const stabilityAlert = document.getElementById('stabilityAlert');
 
         // Power info card toggle
         const powerInfoHeader = document.getElementById('powerInfoHeader');
@@ -500,6 +632,39 @@
                 activePowerDisplay.classList.add('visible');
             } else {
                 activePowerDisplay.classList.remove('visible');
+            }
+        }
+
+        // Update stability bar UI
+        function updateStabilityBarUI() {
+            // Update bar height (fills from bottom)
+            stabilityBarFill.style.height = stabilitySystem.stability + '%';
+
+            // Update percentage text
+            stabilityPercent.textContent = Math.floor(stabilitySystem.stability) + '%';
+
+            // Update classes based on state
+            if (stabilitySystem.mode === "STABLE") {
+                stabilityBarFill.classList.remove('unstable');
+                stabilityPercent.classList.remove('unstable');
+
+                if (stabilitySystem.stability < 20) {
+                    stabilityBarFill.classList.add('low');
+                } else {
+                    stabilityBarFill.classList.remove('low');
+                }
+
+                stabilityAlert.classList.remove('visible');
+            } else {
+                // Unstable mode
+                stabilityBarFill.classList.remove('low');
+                stabilityBarFill.classList.add('unstable');
+                stabilityPercent.classList.add('unstable');
+
+                // Show alert
+                const alertText = stabilitySystem.unstableTimer < 1000 ? 'REALITY FRACTURE' : 'STABILITY LOST';
+                stabilityAlert.textContent = alertText;
+                stabilityAlert.classList.add('visible');
             }
         }
 
@@ -1097,101 +1262,6 @@
             }
         }
 
-        // Draw stability bar (right side)
-        function drawStabilityBar() {
-            const barX = canvas.width - 50;
-            const barY = 100;
-            const barWidth = 30;
-            const barHeight = 400;
-
-            ctx.save();
-
-            // Label
-            ctx.save();
-            ctx.translate(barX + barWidth / 2, barY - 40);
-            ctx.rotate(-Math.PI / 2);
-            ctx.fillStyle = '#ff0040';
-            ctx.font = 'bold 14px "Bebas Neue"';
-            ctx.textAlign = 'center';
-            ctx.shadowBlur = 5;
-            ctx.shadowColor = '#ff0040';
-            ctx.fillText('EXOTIC MATTER', 0, 0);
-            ctx.restore();
-
-            // Bar background
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = '#1a1a1a';
-            ctx.fillRect(barX, barY, barWidth, barHeight);
-            ctx.strokeStyle = '#ff0040';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(barX, barY, barWidth, barHeight);
-
-            // Bar fill (from bottom)
-            const fillHeight = (stabilitySystem.stability / 100) * barHeight;
-            const fillY = barY + barHeight - fillHeight;
-
-            if (stabilitySystem.mode === "STABLE") {
-                // Normal gradient
-                const gradient = ctx.createLinearGradient(barX, fillY, barX, barY + barHeight);
-                gradient.addColorStop(0, '#ff6b9d');
-                gradient.addColorStop(1, '#ff0040');
-                ctx.fillStyle = gradient;
-
-                // Pulse if low stability
-                if (stabilitySystem.stability < 20) {
-                    const pulse = Math.sin(Date.now() / 100) * 0.5 + 0.5;
-                    ctx.shadowBlur = 10 + pulse * 10;
-                    ctx.shadowColor = '#ff0040';
-                } else {
-                    ctx.shadowBlur = 5;
-                    ctx.shadowColor = '#ff0040';
-                }
-
-                ctx.fillRect(barX + 2, fillY, barWidth - 4, fillHeight);
-            } else {
-                // Unstable - glitchy/flickering
-                const flicker = Math.random() > 0.5 ? 1 : 0.5;
-                ctx.globalAlpha = flicker;
-                ctx.fillStyle = '#ff0040';
-                ctx.shadowBlur = 20;
-                ctx.shadowColor = '#ff0040';
-                ctx.fillRect(barX + 2, barY + 2, barWidth - 4, barHeight - 4);
-                ctx.globalAlpha = 1;
-            }
-
-            // Percentage text
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = stabilitySystem.mode === "STABLE" ? '#ff6b9d' : '#ff0040';
-            ctx.font = 'bold 12px "Bebas Neue"';
-            ctx.textAlign = 'center';
-            ctx.fillText(Math.floor(stabilitySystem.stability) + '%', barX + barWidth / 2, barY + barHeight + 20);
-
-            // Warning flash if near instability
-            if (stabilitySystem.mode === "STABLE" && stabilitySystem.stableTimer > (stabilitySystem.STABLE_DURATION - stabilitySystem.WARNING_THRESHOLD)) {
-                const flash = Math.sin(Date.now() / 50) > 0;
-                if (flash) {
-                    ctx.fillStyle = 'rgba(255, 0, 64, 0.3)';
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-                }
-            }
-
-            // Unstable alert overlay
-            if (stabilitySystem.mode === "UNSTABLE") {
-                ctx.fillStyle = 'rgba(255, 0, 64, 0.2)';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                // Alert text
-                ctx.fillStyle = '#ff0040';
-                ctx.font = 'bold 36px "Bebas Neue"';
-                ctx.textAlign = 'center';
-                ctx.shadowBlur = 30;
-                ctx.shadowColor = '#ff0040';
-                const alertText = stabilitySystem.unstableTimer < 1000 ? 'REALITY FRACTURE' : 'STABILITY LOST';
-                ctx.fillText(alertText, canvas.width / 2, 80);
-            }
-
-            ctx.restore();
-        }
 
         // Draw obstacles
         function drawObstacles() {
@@ -1514,9 +1584,6 @@
 
             ctx.restore(); // End shake transform
 
-            // Draw stability bar (not affected by shake)
-            drawStabilityBar();
-
             // Draw game over screen
             if (game.isOver) {
                 ctx.shadowBlur = 0;
@@ -1554,6 +1621,7 @@
 
             // Update stability system (always)
             updateStability(dt);
+            updateStabilityBarUI();
 
             // Skip update if game is over
             if (game.isOver) return;
