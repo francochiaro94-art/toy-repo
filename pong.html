@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pong Game</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');
+
         * {
             margin: 0;
             padding: 0;
@@ -12,38 +14,81 @@
         }
 
         body {
-            background: #1a1a1a;
+            background: linear-gradient(180deg, #0a0a0a 0%, #1a0a14 50%, #0a0a0a 100%);
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            font-family: 'Courier New', monospace;
-            color: #fff;
+            font-family: 'Bebas Neue', 'Courier New', monospace;
+            color: #ff0040;
+            overflow: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                repeating-linear-gradient(
+                    0deg,
+                    rgba(0, 0, 0, 0.15),
+                    rgba(0, 0, 0, 0.15) 1px,
+                    transparent 1px,
+                    transparent 2px
+                );
+            pointer-events: none;
+            z-index: 1;
         }
 
         #gameCanvas {
-            border: 2px solid #fff;
+            border: 3px solid #ff0040;
             background: #000;
             cursor: none;
+            box-shadow:
+                0 0 20px rgba(255, 0, 64, 0.5),
+                0 0 40px rgba(255, 0, 64, 0.3),
+                inset 0 0 60px rgba(255, 0, 64, 0.1);
+            position: relative;
+            z-index: 2;
         }
 
         #scoreboard {
-            font-size: 48px;
-            margin-bottom: 20px;
-            letter-spacing: 20px;
+            font-size: 72px;
+            margin-bottom: 30px;
+            letter-spacing: 40px;
+            color: #ff0040;
+            text-shadow:
+                0 0 10px #ff0040,
+                0 0 20px #ff0040,
+                0 0 30px #ff0040,
+                0 0 40px #ff0040,
+                0 0 70px #ff0040,
+                0 0 80px #ff0040;
+            font-weight: bold;
+            position: relative;
+            z-index: 2;
         }
 
         #instructions {
-            margin-top: 20px;
+            margin-top: 25px;
             text-align: center;
-            font-size: 14px;
-            color: #888;
+            font-size: 16px;
+            color: #ff0040;
+            text-shadow:
+                0 0 5px #ff0040,
+                0 0 10px #ff0040;
+            letter-spacing: 2px;
+            position: relative;
+            z-index: 2;
         }
 
         .score {
             display: inline-block;
-            min-width: 50px;
+            min-width: 80px;
             text-align: center;
         }
 
@@ -51,22 +96,31 @@
             position: absolute;
             top: 20px;
             right: 20px;
-            background: #333;
-            color: #fff;
-            border: 2px solid #fff;
-            padding: 10px 20px;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
+            background: rgba(0, 0, 0, 0.8);
+            color: #ff0040;
+            border: 2px solid #ff0040;
+            padding: 12px 24px;
+            font-family: 'Bebas Neue', 'Courier New', monospace;
+            font-size: 16px;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: all 0.3s;
+            box-shadow:
+                0 0 10px rgba(255, 0, 64, 0.5),
+                inset 0 0 10px rgba(255, 0, 64, 0.1);
+            letter-spacing: 2px;
+            z-index: 3;
         }
 
         #muteButton:hover {
-            background: #555;
+            background: rgba(255, 0, 64, 0.2);
+            box-shadow:
+                0 0 20px rgba(255, 0, 64, 0.8),
+                inset 0 0 20px rgba(255, 0, 64, 0.2);
         }
 
         #muteButton.muted {
-            background: #800;
+            background: rgba(100, 0, 20, 0.8);
+            color: #ff6b9d;
         }
     </style>
 </head>
@@ -250,58 +304,93 @@
             usingKeyboard = false;
         });
 
-        // Draw functions
+        // Draw functions with Stranger Things neon glow
         function drawRect(x, y, width, height, color) {
+            // Outer glow
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = color;
             ctx.fillStyle = color;
             ctx.fillRect(x, y, width, height);
+
+            // Extra glow layers
+            ctx.shadowBlur = 40;
+            ctx.fillRect(x, y, width, height);
+
+            ctx.shadowBlur = 0;
         }
 
         function drawCircle(x, y, radius, color) {
+            // Outer glow
+            ctx.shadowBlur = 25;
+            ctx.shadowColor = color;
             ctx.fillStyle = color;
             ctx.beginPath();
             ctx.arc(x, y, radius, 0, Math.PI * 2);
             ctx.fill();
+
+            // Extra glow
+            ctx.shadowBlur = 45;
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.shadowBlur = 0;
         }
 
         function drawNet() {
             const netWidth = 2;
             const netHeight = 10;
             const gap = 15;
-            ctx.fillStyle = '#444';
+
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#ff0040';
+            ctx.fillStyle = '#ff0040';
 
             for (let i = 0; i < canvas.height; i += netHeight + gap) {
                 ctx.fillRect(canvas.width / 2 - netWidth / 2, i, netWidth, netHeight);
             }
+
+            ctx.shadowBlur = 0;
         }
 
         function draw() {
-            // Clear canvas
-            drawRect(0, 0, canvas.width, canvas.height, '#000');
+            // Clear canvas with solid black
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             // Draw net
             drawNet();
 
-            // Draw paddles
-            drawRect(player.x, player.y, player.width, player.height, '#fff');
-            drawRect(computer.x, computer.y, computer.width, computer.height, '#fff');
+            // Draw paddles with neon red glow
+            drawRect(player.x, player.y, player.width, player.height, '#ff0040');
+            drawRect(computer.x, computer.y, computer.width, computer.height, '#ff0040');
 
-            // Draw ball
-            drawCircle(ball.x, ball.y, ball.radius, '#fff');
+            // Draw ball with bright cyan/pink glow
+            drawCircle(ball.x, ball.y, ball.radius, '#ff6b9d');
 
             // Draw game over screen
             if (game.isOver) {
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                ctx.fillStyle = '#fff';
-                ctx.font = 'bold 48px "Courier New"';
+                // Winner text with intense glow
+                ctx.fillStyle = '#ff0040';
+                ctx.font = 'bold 64px "Bebas Neue"';
                 ctx.textAlign = 'center';
+                ctx.shadowBlur = 30;
+                ctx.shadowColor = '#ff0040';
 
                 const winner = game.playerScore >= game.maxScore ? 'PLAYER WINS!' : 'COMPUTER WINS!';
                 ctx.fillText(winner, canvas.width / 2, canvas.height / 2 - 40);
 
-                ctx.font = '24px "Courier New"';
-                ctx.fillText('Press SPACE or ENTER to restart', canvas.width / 2, canvas.height / 2 + 20);
+                // Restart instruction
+                ctx.font = '28px "Bebas Neue"';
+                ctx.shadowBlur = 20;
+                ctx.fillText('Press SPACE or ENTER to restart', canvas.width / 2, canvas.height / 2 + 40);
+
+                ctx.shadowBlur = 0;
             }
         }
 
