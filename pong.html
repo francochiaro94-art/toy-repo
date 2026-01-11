@@ -365,6 +365,91 @@
             margin-top: 3px;
         }
 
+        /* Telekinesis Power Bar (Below Power Info Card) */
+        #telekinesisBarContainer {
+            position: fixed;
+            left: 30px;
+            top: 700px;
+            z-index: 11;
+            width: 280px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 15px;
+            border: 2px solid #00d4ff;
+            box-shadow:
+                0 0 10px rgba(0, 212, 255, 0.5),
+                inset 0 0 10px rgba(0, 212, 255, 0.1);
+        }
+
+        #telekinesisBarLabel {
+            font-size: 18px;
+            color: #00d4ff;
+            text-shadow:
+                0 0 5px #00d4ff,
+                0 0 10px #00d4ff;
+            letter-spacing: 2px;
+            margin-bottom: 8px;
+        }
+
+        #telekinesisBar {
+            width: 100%;
+            height: 30px;
+            background: #1a1a1a;
+            border: 3px solid #00d4ff;
+            box-shadow:
+                0 0 10px rgba(0, 212, 255, 0.5),
+                inset 0 0 10px rgba(0, 0, 0, 0.8);
+            position: relative;
+            overflow: hidden;
+        }
+
+        #telekinesisBarFill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #00d4ff, #00ffaa);
+            transition: width 0.3s ease, box-shadow 0.3s ease;
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.8);
+        }
+
+        #telekinesisBarFill.ready {
+            box-shadow:
+                0 0 20px rgba(0, 212, 255, 1),
+                0 0 40px rgba(0, 212, 255, 0.8);
+            animation: telekinesisGlow 1s infinite;
+        }
+
+        @keyframes telekinesisGlow {
+            0%, 100% { box-shadow: 0 0 20px rgba(0, 212, 255, 1), 0 0 40px rgba(0, 212, 255, 0.8); }
+            50% { box-shadow: 0 0 30px rgba(0, 255, 170, 1), 0 0 60px rgba(0, 212, 255, 1); }
+        }
+
+        #telekinesisReadyText {
+            color: #00ffaa;
+            font-size: 14px;
+            text-shadow:
+                0 0 5px #00ffaa,
+                0 0 10px #00ffaa;
+            letter-spacing: 2px;
+            margin-top: 8px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        #telekinesisReadyText.visible {
+            opacity: 1;
+        }
+
+        #telekinesisActiveDisplay {
+            color: #00d4ff;
+            font-size: 16px;
+            text-shadow:
+                0 0 5px #00d4ff,
+                0 0 10px #00d4ff;
+            letter-spacing: 1.5px;
+            margin-top: 8px;
+            text-align: center;
+            font-weight: bold;
+        }
+
         /* Stability Bar Container (Right Margin) */
         #stabilityBarContainer {
             position: fixed;
@@ -549,6 +634,16 @@
         </div>
     </div>
 
+    <!-- Telekinesis Power Bar (Below Power Info Card) -->
+    <div id="telekinesisBarContainer">
+        <div id="telekinesisBarLabel">TELEKINESIS POWER</div>
+        <div id="telekinesisBar">
+            <div id="telekinesisBarFill"></div>
+        </div>
+        <div id="telekinesisReadyText">⚡ TAP E TO ACTIVATE ⚡</div>
+        <div id="telekinesisActiveDisplay"></div>
+    </div>
+
     <!-- Stability Bar (Right Margin) -->
     <div id="stabilityBarContainer">
         <div id="stabilityLabel">EXOTIC MATTER</div>
@@ -587,6 +682,11 @@
         const stabilityBarFill = document.getElementById('stabilityBarFill');
         const stabilityPercent = document.getElementById('stabilityPercent');
         const stabilityAlert = document.getElementById('stabilityAlert');
+
+        // Telekinesis UI DOM elements
+        const telekinesisBarFill = document.getElementById('telekinesisBarFill');
+        const telekinesisReadyText = document.getElementById('telekinesisReadyText');
+        const telekinesisActiveDisplay = document.getElementById('telekinesisActiveDisplay');
 
         // Power info card toggle
         const powerInfoHeader = document.getElementById('powerInfoHeader');
@@ -632,6 +732,29 @@
                 activePowerDisplay.classList.add('visible');
             } else {
                 activePowerDisplay.classList.remove('visible');
+            }
+        }
+
+        // Update Telekinesis bar UI
+        function updateTelekinesisBarUI() {
+            // Update bar width
+            telekinesisBarFill.style.width = telekinesisSystem.charge + '%';
+
+            // Show/hide ready indicator
+            if (telekinesisSystem.ready) {
+                telekinesisBarFill.classList.add('ready');
+                telekinesisReadyText.classList.add('visible');
+            } else {
+                telekinesisBarFill.classList.remove('ready');
+                telekinesisReadyText.classList.remove('visible');
+            }
+
+            // Update active display
+            if (telekinesisSystem.active) {
+                const remaining = Math.max(0, telekinesisSystem.endTime - performance.now()) / 1000;
+                telekinesisActiveDisplay.textContent = `TELEKINESIS ACTIVE: ${remaining.toFixed(1)}s`;
+            } else {
+                telekinesisActiveDisplay.textContent = '';
             }
         }
 
@@ -1064,6 +1187,19 @@
             }
         ];
 
+        // ===== TELEKINESIS SYSTEM =====
+
+        const telekinesisSystem = {
+            hitStreak: 0,
+            charge: 0, // 0-100
+            ready: false,
+            active: false,
+            endTime: 0,
+            duration: 5000, // 5 seconds
+            steerAcceleration: 450, // pixels per second squared
+            maxSteerSpeed: 550 // max ball speed during telekinesis
+        };
+
         // Get next power (cycle through)
         function getNextPower() {
             powerSystem.currentPowerIndex = (powerSystem.currentPowerIndex + 1) % POWERS.length;
@@ -1119,6 +1255,78 @@
             powerSystem.hitStreak = 0;
             powerSystem.powerCharge = 0;
             powerSystem.powerReady = false;
+        }
+
+        // Increment Telekinesis hit streak (call when player hits ball)
+        function incrementTelekinesisStreak() {
+            telekinesisSystem.hitStreak++;
+            // 11 hits required = 100/11 ≈ 9.09% per hit
+            telekinesisSystem.charge = Math.min((telekinesisSystem.hitStreak * 100) / 11, 100);
+
+            if (telekinesisSystem.charge >= 100) {
+                telekinesisSystem.ready = true;
+            }
+        }
+
+        // Reset Telekinesis streak (call when player misses)
+        function resetTelekinesisStreak() {
+            telekinesisSystem.hitStreak = 0;
+            telekinesisSystem.charge = 0;
+            telekinesisSystem.ready = false;
+        }
+
+        // Activate Telekinesis power
+        function activateTelekinesis() {
+            if (!telekinesisSystem.ready || telekinesisSystem.active || game.isOver) return;
+
+            telekinesisSystem.active = true;
+            telekinesisSystem.endTime = performance.now() + telekinesisSystem.duration;
+
+            // Reset charge and ready state
+            telekinesisSystem.charge = 0;
+            telekinesisSystem.ready = false;
+            telekinesisSystem.hitStreak = 0;
+        }
+
+        // Update Telekinesis steering (apply arrow key control to ball)
+        function updateTelekinesis(dt) {
+            if (!telekinesisSystem.active) return;
+
+            const now = performance.now();
+
+            // Check if Telekinesis expired
+            if (now >= telekinesisSystem.endTime) {
+                telekinesisSystem.active = false;
+                return;
+            }
+
+            // Apply steering based on arrow keys
+            const steerAccel = telekinesisSystem.steerAcceleration * dt;
+
+            if (keys.up) {
+                ball.speedY -= steerAccel;
+            }
+            if (keys.down) {
+                ball.speedY += steerAccel;
+            }
+            if (keys.left) {
+                ball.speedX -= steerAccel;
+            }
+            if (keys.right) {
+                ball.speedX += steerAccel;
+            }
+
+            // Clamp to max steer speed
+            const speed = Math.sqrt(ball.speedX ** 2 + ball.speedY ** 2);
+            if (speed > telekinesisSystem.maxSteerSpeed) {
+                const scale = telekinesisSystem.maxSteerSpeed / speed;
+                ball.speedX *= scale;
+                ball.speedY *= scale;
+            }
+
+            // Apply gentle damping to prevent runaway velocity
+            ball.speedX *= 0.995;
+            ball.speedY *= 0.995;
         }
 
         // ===== EXOTIC MATTER STABILITY SYSTEM =====
@@ -1315,7 +1523,9 @@
         // Input handling
         const keys = {
             up: false,
-            down: false
+            down: false,
+            left: false,
+            right: false
         };
 
         let mouseY = canvas.height / 2;
@@ -1330,6 +1540,12 @@
                 keys.down = true;
                 usingKeyboard = true;
             }
+            if (e.key === 'ArrowLeft') {
+                keys.left = true;
+            }
+            if (e.key === 'ArrowRight') {
+                keys.right = true;
+            }
             if ((e.key === ' ' || e.key === 'Enter') && game.isOver) {
                 e.preventDefault();
                 resetGame();
@@ -1339,11 +1555,18 @@
                 e.preventDefault();
                 activatePower();
             }
+            // Telekinesis activation
+            if (e.key === 'e' || e.key === 'E') {
+                e.preventDefault();
+                activateTelekinesis();
+            }
         });
 
         document.addEventListener('keyup', (e) => {
             if (e.key === 'ArrowUp') keys.up = false;
             if (e.key === 'ArrowDown') keys.down = false;
+            if (e.key === 'ArrowLeft') keys.left = false;
+            if (e.key === 'ArrowRight') keys.right = false;
         });
 
         canvas.addEventListener('mousemove', (e) => {
@@ -1579,8 +1802,22 @@
             drawRect(player.x, player.y, player.width, player.height, '#ff0040');
             drawRect(computer.x, computer.y, computer.width, computer.height, '#ff0040');
 
-            // Draw ball with bright cyan/pink glow
-            drawCircle(ball.x, ball.y, ball.radius, '#ff6b9d');
+            // Draw ball with bright cyan/pink glow (enhanced during Telekinesis)
+            if (telekinesisSystem.active) {
+                // Add cyan aura during Telekinesis
+                ctx.shadowBlur = 50;
+                ctx.shadowColor = '#00d4ff';
+                ctx.fillStyle = 'rgba(0, 212, 255, 0.3)';
+                ctx.beginPath();
+                ctx.arc(ball.x, ball.y, ball.radius * 2.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Draw ball with cyan tint
+                drawCircle(ball.x, ball.y, ball.radius, '#00ffaa');
+            } else {
+                // Normal pink ball
+                drawCircle(ball.x, ball.y, ball.radius, '#ff6b9d');
+            }
 
             ctx.restore(); // End shake transform
 
@@ -1618,6 +1855,9 @@
             // Update power system (always)
             updatePower(dt);
             updatePowerBarUI();
+
+            // Update Telekinesis UI (always)
+            updateTelekinesisBarUI();
 
             // Update stability system (always)
             updateStability(dt);
@@ -1662,6 +1902,9 @@
                 computer.y = canvas.height - computer.height;
             }
 
+            // Update Telekinesis steering (if active)
+            updateTelekinesis(dt / 1000); // Convert dt from ms to seconds
+
             // Move ball
             ball.x += ball.speedX;
             ball.y += ball.speedY;
@@ -1691,6 +1934,9 @@
 
                 // Increment hit streak for power system
                 incrementHitStreak();
+
+                // Increment Telekinesis hit streak
+                incrementTelekinesisStreak();
             }
 
             // Ball collision with computer paddle
@@ -1719,6 +1965,7 @@
                 updateScore();
                 resetBall(1);
                 resetHitStreak(); // Reset power charge on miss
+                resetTelekinesisStreak(); // Reset Telekinesis charge on miss
             } else if (ball.x + ball.radius >= canvas.width) {
                 // Player scores
                 game.playerScore++;
@@ -1755,6 +2002,8 @@
             computer.y = canvas.height / 2 - paddleHeight / 2;
             // Reset power system
             resetHitStreak();
+            resetTelekinesisStreak();
+            telekinesisSystem.active = false; // Deactivate Telekinesis if active
             if (powerSystem.activePower) {
                 powerSystem.activePower.onEnd();
                 powerSystem.activePower = null;
