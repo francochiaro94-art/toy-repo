@@ -122,9 +122,20 @@
             background: rgba(100, 0, 20, 0.8);
             color: #ff6b9d;
         }
+
+        #particleCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 0;
+        }
     </style>
 </head>
 <body>
+    <canvas id="particleCanvas"></canvas>
     <button id="muteButton">🔊 MUSIC ON</button>
     <div id="scoreboard">
         <span class="score" id="playerScore">0</span>
@@ -140,6 +151,18 @@
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+
+        // Particle canvas (full screen)
+        const particleCanvas = document.getElementById('particleCanvas');
+        const particleCtx = particleCanvas.getContext('2d');
+        particleCanvas.width = window.innerWidth;
+        particleCanvas.height = window.innerHeight;
+
+        // Handle window resize for particle canvas
+        window.addEventListener('resize', () => {
+            particleCanvas.width = window.innerWidth;
+            particleCanvas.height = window.innerHeight;
+        });
 
         // Stranger Things-Inspired Synthwave Music Generator
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -538,8 +561,8 @@
             let particle = particlePool.find(p => !p.active);
             if (!particle) return; // Pool exhausted
 
-            // Random spawn position above canvas
-            particle.x = Math.random() * canvas.width;
+            // Random spawn position above viewport (entire browser width)
+            particle.x = Math.random() * window.innerWidth;
             particle.y = -10 - Math.random() * 20;
 
             // Downward velocity with variation
@@ -551,14 +574,14 @@
             particle.wobbleSpeed = 0.02 + Math.random() * 0.03;
             particle.wobbleAmount = 0.3 + Math.random() * 0.7;
 
-            // Size variation: mostly small, occasionally slightly bigger
+            // Size variation: bigger particles now
             const rand = Math.random();
             if (rand > 0.95) {
-                particle.size = 2.5 + Math.random() * 1.5; // Rare bright speck
+                particle.size = 4.5 + Math.random() * 2; // Rare bright speck (4.5-6.5px)
             } else if (rand > 0.7) {
-                particle.size = 1.5 + Math.random() * 1; // Medium
+                particle.size = 3 + Math.random() * 1.5; // Medium (3-4.5px)
             } else {
-                particle.size = 0.8 + Math.random() * 0.7; // Small
+                particle.size = 1.8 + Math.random() * 1.2; // Small (1.8-3px)
             }
 
             // Lifetime: 3-8 seconds at 60fps = 180-480 frames
@@ -610,7 +633,7 @@
                 p.x += Math.sin(p.wobblePhase) * p.wobbleAmount;
 
                 // Remove if dead or offscreen
-                if (p.life >= p.maxLife || p.y > canvas.height + 20) {
+                if (p.life >= p.maxLife || p.y > window.innerHeight + 20) {
                     p.active = false;
                     activeParticles.splice(i, 1);
                 }
@@ -619,29 +642,33 @@
 
         // Draw all particles
         function drawParticles() {
-            ctx.shadowBlur = 0;
+            // Clear particle canvas
+            particleCtx.clearRect(0, 0, particleCanvas.width, particleCanvas.height);
+            particleCtx.shadowBlur = 0;
 
             for (const p of activeParticles) {
                 const baseAlpha = p.alpha;
 
                 // Draw subtle glow (only for larger particles)
-                if (p.size > 2) {
-                    ctx.shadowBlur = 4;
-                    ctx.shadowColor = p.color;
+                if (p.size > 3.5) {
+                    particleCtx.shadowBlur = 6;
+                    particleCtx.shadowColor = p.color;
+                } else {
+                    particleCtx.shadowBlur = 0;
                 }
 
-                ctx.fillStyle = p.color;
-                ctx.globalAlpha = baseAlpha;
+                particleCtx.fillStyle = p.color;
+                particleCtx.globalAlpha = baseAlpha;
 
                 // Draw as circle
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-                ctx.fill();
+                particleCtx.beginPath();
+                particleCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                particleCtx.fill();
             }
 
             // Reset canvas state
-            ctx.globalAlpha = 1;
-            ctx.shadowBlur = 0;
+            particleCtx.globalAlpha = 1;
+            particleCtx.shadowBlur = 0;
         }
 
         // Draw functions with Stranger Things neon glow
@@ -702,9 +729,6 @@
             // Draw net
             drawNet();
 
-            // Draw particles (behind gameplay elements)
-            drawParticles();
-
             // Draw paddles with neon red glow
             drawRect(player.x, player.y, player.width, player.height, '#ff0040');
             drawRect(computer.x, computer.y, computer.width, computer.height, '#ff0040');
@@ -739,8 +763,9 @@
 
         // Update game logic
         function update() {
-            // Update particles (always, even when game is over)
+            // Update and draw particles (always, even when game is over)
             updateParticles();
+            drawParticles();
 
             // Skip update if game is over
             if (game.isOver) return;
