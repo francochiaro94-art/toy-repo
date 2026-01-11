@@ -141,79 +141,282 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
-        // 90s Style Music Generator
+        // Stranger Things-Inspired Synthwave Music Generator
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         let isMuted = false;
+        let audioInitialized = false;
 
-        // Create master gain for volume control
+        // Master gain for volume control
         const masterGain = audioCtx.createGain();
         masterGain.gain.value = 0.3;
         masterGain.connect(audioCtx.destination);
 
-        // 90s arcade-style melody notes (C major scale pentatonic)
-        const melody = [
-            { note: 523.25, duration: 0.2 },  // C5
-            { note: 659.25, duration: 0.2 },  // E5
-            { note: 783.99, duration: 0.2 },  // G5
-            { note: 659.25, duration: 0.2 },  // E5
-            { note: 523.25, duration: 0.2 },  // C5
-            { note: 587.33, duration: 0.2 },  // D5
-            { note: 659.25, duration: 0.4 },  // E5
-            { note: 523.25, duration: 0.2 },  // C5
-            { note: 659.25, duration: 0.2 },  // E5
-            { note: 783.99, duration: 0.2 },  // G5
-            { note: 880.00, duration: 0.2 },  // A5
-            { note: 783.99, duration: 0.2 },  // G5
-            { note: 659.25, duration: 0.2 },  // E5
-            { note: 523.25, duration: 0.4 }   // C5
+        // ===== TIMING & SEQUENCER =====
+        const BPM = 84;
+        const quarterNoteTime = 60 / BPM; // ~0.714s
+        const sixteenthNoteTime = quarterNoteTime / 4; // ~0.178s
+        const scheduleAheadTime = 0.1; // Schedule 100ms ahead
+        const lookaheadInterval = 25; // Check every 25ms
+
+        let currentSixteenthNote = 0;
+        let nextNoteTime = 0.0;
+        let timerID;
+
+        // ===== MUSICAL DATA (C MINOR) =====
+        // Original hypnotic arpeggio inspired by i-VI-III-VII progression
+        // Cm (C Eb G) → Ab (Ab C Eb) → Eb (Eb G Bb) → Bb (Bb D F)
+        const arpPattern = [
+            // Bar 1-2: Cm arpeggio
+            { note: 523.25, step: 0 },  // C5
+            { note: 622.25, step: 2 },  // Eb5
+            { note: 783.99, step: 4 },  // G5
+            { note: 622.25, step: 6 },  // Eb5
+            // Bar 3-4: Ab arpeggio
+            { note: 830.61, step: 8 },  // Ab5
+            { note: 523.25, step: 10 }, // C5
+            { note: 622.25, step: 12 }, // Eb5
+            { note: 523.25, step: 14 }, // C5
+            // Bar 5-6: Eb arpeggio
+            { note: 622.25, step: 16 }, // Eb5
+            { note: 783.99, step: 18 }, // G5
+            { note: 932.33, step: 20 }, // Bb5
+            { note: 783.99, step: 22 }, // G5
+            // Bar 7-8: Bb arpeggio
+            { note: 932.33, step: 24 }, // Bb5
+            { note: 587.33, step: 26 }, // D5
+            { note: 698.46, step: 28 }, // F5
+            { note: 587.33, step: 30 }, // D5
         ];
 
-        // Bass notes
-        const bass = [261.63, 196.00, 220.00, 246.94]; // C4, G3, A3, B3
+        const bassPattern = [
+            { note: 130.81, step: 0, duration: 8 },  // C3 (hold for 8 16ths)
+            { note: 207.65, step: 8, duration: 8 },  // Ab3
+            { note: 155.56, step: 16, duration: 8 }, // Eb3
+            { note: 233.08, step: 24, duration: 8 }, // Bb3
+        ];
 
-        let melodyIndex = 0;
-        let bassIndex = 0;
+        // ===== EFFECTS CREATION =====
 
-        function playNote(frequency, duration, waveType = 'square') {
+        // Impulse reverb (simple convolver)
+        function createReverb() {
+            const convolver = audioCtx.createConvolver();
+            const rate = audioCtx.sampleRate;
+            const length = rate * 2.5; // 2.5s decay
+            const impulse = audioCtx.createBuffer(2, length, rate);
+            const left = impulse.getChannelData(0);
+            const right = impulse.getChannelData(1);
+
+            for (let i = 0; i < length; i++) {
+                const decay = Math.exp(-4 * i / length);
+                left[i] = (Math.random() * 2 - 1) * decay * 0.5;
+                right[i] = (Math.random() * 2 - 1) * decay * 0.5;
+            }
+
+            convolver.buffer = impulse;
+            return convolver;
+        }
+
+        // Tempo-synced delay (dotted 8th = 3/4 quarter note)
+        function createDelay() {
+            const delay = audioCtx.createDelay(2);
+            const feedback = audioCtx.createGain();
+            const wetGain = audioCtx.createGain();
+
+            delay.delayTime.value = quarterNoteTime * 0.75; // Dotted 8th
+            feedback.gain.value = 0.35;
+            wetGain.gain.value = 0.2;
+
+            // Feedback loop
+            delay.connect(feedback);
+            feedback.connect(delay);
+            delay.connect(wetGain);
+
+            return { input: delay, output: wetGain };
+        }
+
+        // Saturation for bass warmth
+        function createSaturation() {
+            const shaper = audioCtx.createWaveShaper();
+            const samples = 256;
+            const curve = new Float32Array(samples);
+            const amount = 0.6;
+
+            for (let i = 0; i < samples; i++) {
+                const x = (i / samples) * 2 - 1;
+                curve[i] = Math.tanh(x * amount * 4);
+            }
+
+            shaper.curve = curve;
+            shaper.oversample = '2x';
+            return shaper;
+        }
+
+        // Initialize effects chain
+        const reverbNode = createReverb();
+        const delayEffect = createDelay();
+        const bassShaper = createSaturation();
+
+        const reverbWet = audioCtx.createGain();
+        reverbWet.gain.value = 0.12;
+        reverbNode.connect(reverbWet);
+        reverbWet.connect(masterGain);
+
+        delayEffect.output.connect(masterGain);
+
+        // ===== SOUND SYNTHESIS =====
+
+        // Arp synth: dual detuned saws with filter envelope
+        function playArpNote(frequency, time) {
             if (isMuted) return;
 
-            const oscillator = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
+            const noteLength = sixteenthNoteTime * 0.85;
 
-            oscillator.type = waveType;
-            oscillator.frequency.value = frequency;
+            // Dual sawtooth oscillators (analog thickness)
+            const osc1 = audioCtx.createOscillator();
+            const osc2 = audioCtx.createOscillator();
+            osc1.type = 'sawtooth';
+            osc2.type = 'sawtooth';
+            osc1.frequency.value = frequency;
+            osc2.frequency.value = frequency;
+            osc1.detune.value = 10;  // +10 cents
+            osc2.detune.value = -10; // -10 cents
 
-            gainNode.gain.value = 0.1;
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            // Mixer
+            const mixer = audioCtx.createGain();
+            mixer.gain.value = 0.4;
+            osc1.connect(mixer);
+            osc2.connect(mixer);
 
-            oscillator.connect(gainNode);
-            gainNode.connect(masterGain);
+            // Lowpass filter with envelope
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.Q.value = 4;
+            filter.frequency.value = 600;
 
-            oscillator.start(audioCtx.currentTime);
-            oscillator.stop(audioCtx.currentTime + duration);
+            // Filter envelope: bright attack, quick decay
+            filter.frequency.setValueAtTime(3500, time);
+            filter.frequency.exponentialRampToValueAtTime(600, time + 0.08);
+
+            mixer.connect(filter);
+
+            // Amplitude envelope (pumping feel)
+            const amp = audioCtx.createGain();
+            amp.gain.value = 0;
+            filter.connect(amp);
+
+            amp.gain.setValueAtTime(0, time);
+            amp.gain.linearRampToValueAtTime(0.15, time + 0.003);
+            amp.gain.linearRampToValueAtTime(0.11, time + noteLength * 0.6);
+            amp.gain.linearRampToValueAtTime(0, time + noteLength);
+
+            // Route to effects and master
+            amp.connect(delayEffect.input);
+            amp.connect(reverbNode);
+            amp.connect(masterGain);
+
+            osc1.start(time);
+            osc2.start(time);
+            osc1.stop(time + noteLength);
+            osc2.stop(time + noteLength);
         }
 
-        function playMelody() {
-            const note = melody[melodyIndex];
-            playNote(note.note, note.duration, 'square');
+        // Bass synth: triangle/saw with heavy lowpass and saturation
+        function playBassNote(frequency, time, duration) {
+            if (isMuted) return;
 
-            melodyIndex = (melodyIndex + 1) % melody.length;
+            const noteLength = sixteenthNoteTime * duration * 0.95;
 
-            setTimeout(playMelody, note.duration * 1000);
+            const osc = audioCtx.createOscillator();
+            osc.type = 'triangle';
+            osc.frequency.value = frequency;
+
+            // Through saturation
+            osc.connect(bassShaper);
+
+            // Heavy lowpass
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = 350;
+            filter.Q.value = 2;
+            bassShaper.connect(filter);
+
+            // Amp envelope
+            const amp = audioCtx.createGain();
+            amp.gain.value = 0;
+            filter.connect(amp);
+
+            amp.gain.setValueAtTime(0, time);
+            amp.gain.linearRampToValueAtTime(0.28, time + 0.015);
+            amp.gain.linearRampToValueAtTime(0.22, time + noteLength - 0.03);
+            amp.gain.linearRampToValueAtTime(0, time + noteLength);
+
+            amp.connect(masterGain);
+
+            osc.start(time);
+            osc.stop(time + noteLength);
         }
 
-        function playBass() {
-            const frequency = bass[bassIndex];
-            playNote(frequency, 0.4, 'triangle');
+        // ===== SEQUENCER =====
 
-            bassIndex = (bassIndex + 1) % bass.length;
-
-            setTimeout(playBass, 400);
+        // Lookahead scheduler: schedules notes ahead to avoid timing drift
+        function scheduler() {
+            // Schedule all notes that fall within the lookahead window
+            while (nextNoteTime < audioCtx.currentTime + scheduleAheadTime) {
+                scheduleNote(currentSixteenthNote, nextNoteTime);
+                nextStep();
+            }
         }
 
-        // Mute button handler
+        function scheduleNote(stepNumber, time) {
+            const step = stepNumber % 32; // 32-step pattern
+
+            // Check arp pattern
+            const arpNote = arpPattern.find(n => n.step === step);
+            if (arpNote) {
+                playArpNote(arpNote.note, time);
+            }
+
+            // Check bass pattern
+            const bassNote = bassPattern.find(n => n.step === step);
+            if (bassNote) {
+                playBassNote(bassNote.note, time, bassNote.duration);
+            }
+        }
+
+        function nextStep() {
+            nextNoteTime += sixteenthNoteTime;
+            currentSixteenthNote++;
+        }
+
+        // ===== AUTOPLAY POLICY =====
+
+        function initAudio() {
+            if (audioInitialized) return;
+
+            // Resume suspended context
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            // Start sequencer
+            currentSixteenthNote = 0;
+            nextNoteTime = audioCtx.currentTime + 0.05;
+            timerID = setInterval(scheduler, lookaheadInterval);
+
+            audioInitialized = true;
+        }
+
+        // Auto-init on first interaction
+        document.addEventListener('click', initAudio, { once: true });
+        document.addEventListener('keydown', initAudio, { once: true });
+
+        // ===== MUTE BUTTON =====
+
         const muteButton = document.getElementById('muteButton');
         muteButton.addEventListener('click', () => {
+            // Ensure audio is initialized
+            if (!audioInitialized) initAudio();
+
             isMuted = !isMuted;
             if (isMuted) {
                 muteButton.textContent = '🔇 MUSIC OFF';
@@ -225,12 +428,6 @@
                 masterGain.gain.value = 0.3;
             }
         });
-
-        // Start the music
-        setTimeout(() => {
-            playMelody();
-            playBass();
-        }, 100);
 
         // Game objects
         const game = {
